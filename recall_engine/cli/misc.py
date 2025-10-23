@@ -9,7 +9,7 @@ def get_stop_words() -> list[str]:
         exit()
     
 
-def dataset_loader(fileNameWithDir):
+def dataset_loader(fileNameWithDir: str) -> str:
     try:
         with open(fileNameWithDir) as file:
             return file.read()
