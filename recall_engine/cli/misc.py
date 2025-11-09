@@ -1,6 +1,7 @@
 def get_stop_words() -> list[str]:
     try:
-        with open("./helper/stop_words.txt") as words:
+       
+        with open("./recall_engine/helper/stop_words.txt") as words:
             words = words.read()
             words = words.splitlines()
             return words    
@@ -16,4 +17,5 @@ def dataset_loader(fileNameWithDir: str) -> str:
     except Exception as e:
         print(f"Error At Reading File: {e}")
         exit()
+        
         
