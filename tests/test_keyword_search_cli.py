@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import patch, mock_open
 
-from recall_engine.cli.keyword_search_cli import (
+from recall_engine.cli.main import (
     tokens_stemmer,
     clean_punctuation,
     remove_stop_words,
