@@ -27,7 +27,11 @@ def cli() -> None:
             # args.query example: "The Godfather"
             print(f"Searching for: {args.query}")
             query = args.query
-            results = indexer.get_documents(query)
+            operation = args.operation if hasattr(args, 'operation') else None
+            if (operation):
+                print(f"Using operation: {operation}")
+            
+            results = indexer.get_documents(query, operation=operation)
             for i, result in enumerate(results):
                 print(f"{i+1}. Title: {result['title']}")
         case _:

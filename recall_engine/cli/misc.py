@@ -7,7 +7,6 @@ CACHE_PATH = f"{PROJECT_ROOT}/cache/cache.pkl"
 DATA_PATH = f"./data/movies.json"
 def get_stop_words() -> list[str]:
     try:
-       
         with open(STOP_WORDS_PATH) as words:
             words = words.read()
             words = words.splitlines()

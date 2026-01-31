@@ -1,7 +1,6 @@
 #Interverted Indexer class for recall engine. This class will be responsible for building the index and retrieving documents based on the index.
 import os
 import pickle
-import json
 from recall_engine.cli.misc import CACHE_PATH, dataset_loader_json
 from recall_engine.helper.tokenizer import Tokenizer
 
@@ -120,19 +119,21 @@ class Indexer:
             self.build(docPath, dataKey=dataKey, docIdKey=docIdKey, excludeDocKeys=excludeDocKeys)
             self.save()
     
-    def get_documents(self, term: str) -> list[dict[str,str]]:
+    def get_documents(self, terms: list[str], operation: str = "") -> list[dict[str,str]]:
         """Retrieve documents containing a given term.
         
         Args:
-            term: The term to search for in the index.
+            terms: The terms to search for in the index.
+            operation: The boolean operation to apply ("AND" or "OR" or "NOT").
         
         Returns:
             A list of document data dictionaries that contain the term.
         """
-        tokenized_term = self.tokenizer.tokenize(term)
+        tokenized_term = [token for term in terms for token in self.tokenizer.tokenize(term)]
         doc_ids: list[str] = []
         for token in tokenized_term:
             if token in self.index:
                 for doc_id in self.index[token]:
                     doc_ids.append(doc_id)
+
         return [self.doc_map[doc_id] for doc_id in set(doc_ids)]
