@@ -34,7 +34,7 @@ class Parser:
             char = self.peek()
             if char.isspace():
                 self.advance()
-            elif char.isalnum():
+            elif char not in '()':
                 self.scan_tokens()
             else:
                 self.tokens.append(char)
@@ -44,7 +44,10 @@ class Parser:
                 
     def scan_tokens(self) -> None:
         start_index = self.current_index
-        while not self.is_end_of_query() and self.peek().isalnum():
+        while not self.is_end_of_query():
+            char = self.peek()
+            if char.isspace() or char in '()':
+                break
             self.advance()
         token = self.query[start_index:self.current_index]
         self.tokens.append(token)
@@ -79,9 +82,13 @@ class Parser:
 if __name__ == "__main__":
     query = "The Godfather AND (crime OR drama) NOT comedy"
     query2 = "(bear AND river) OR (mountain AND NOT snow)"
+    query3 = "#tag AND _id:234"
     parser = Parser(query)
     parser2 = Parser(query2)
+    parser3 = Parser(query3)
     parser.scanner()
     parser2.scanner()
+    parser3.scanner()
     print(parser.tokens, '\n')
     print(parser2.tokens)
+    print(parser3.tokens)
