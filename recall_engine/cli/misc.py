@@ -1,7 +1,11 @@
+PROJECT_ROOT = "./recall_engine"
+STOP_WORDS_PATH = f"{PROJECT_ROOT}/helper/stop_words.txt"
+CACHE_PATH = f"{PROJECT_ROOT}/cache/cache.pkl"
+DATA_PATH = f"./data/movies.json"
 def get_stop_words() -> list[str]:
     try:
        
-        with open("./recall_engine/helper/stop_words.txt") as words:
+        with open(STOP_WORDS_PATH) as words:
             words = words.read()
             words = words.splitlines()
             return words    

@@ -72,7 +72,7 @@ poetry install --with dev
 
 ```bash
 # Search the movie dataset
-poetry run python recall_engine/cli/keyword_search_cli.py search "action hero"
+poetry run recall_engine search "action hero"
 ```
 
 ---

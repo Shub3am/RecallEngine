@@ -4,7 +4,7 @@ import argparse
 from nltk.stem import PorterStemmer 
 from recall_engine.cli.misc import get_stop_words, dataset_loader
 import string
-
+from recall_engine.cli.misc import DATA_PATH
 
         
 def tokens_stemmer(tokens: list[str]) -> list[str]:
@@ -87,7 +87,7 @@ def match_keyword(query: str, content: str) -> bool:
         
 
     
-def main() -> None:
+def cli() -> None:
     """CLI entry point for keyword-based movie search.
     //command t o run: poetry run python recall_engine/cli/keyword_search_cli.py search "query string"
     Provides 'search' subcommand to query movies.json dataset by matching
@@ -100,7 +100,7 @@ def main() -> None:
     search_parser.add_argument("query", type=str, help="Search query")
 
     args = parser.parse_args()
-    movies = json.loads(dataset_loader("./data/movies.json")) # poetry runs from project root, so path is relative to root
+    movies = json.loads(dataset_loader(DATA_PATH)) # poetry runs from project root, so path is relative to root
     match args.command:
         case "search":
             query = standardize_texts(args.query)

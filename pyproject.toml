@@ -23,3 +23,6 @@ packages = [
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.0.0"
 pytest-cov = ">=4.1.0"
+
+[project.scripts]
+recall_engine = "recall_engine.cli.main:cli"

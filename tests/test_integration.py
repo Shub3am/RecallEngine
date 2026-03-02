@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from io import StringIO
 
-from recall_engine.cli.keyword_search_cli import main, standardize_texts, match_keyword
+from recall_engine.cli.main import cli, standardize_texts, match_keyword
 
 
 class TestEndToEndSearch:
@@ -30,7 +30,7 @@ class TestEndToEndSearch:
         # Capture output
         with patch('sys.stdout', new=StringIO()) as fake_output:
             try:
-                main()
+                cli()
                 output = fake_output.getvalue()
                 # Should find movies with "run" in the title
                 assert "Running" in output or "Run" in output
@@ -53,7 +53,7 @@ class TestEndToEndSearch:
         with patch('sys.stdout', new=StringIO()) as fake_output:
             with patch('recall_engine.cli.keyword_search_cli.get_stop_words', return_value=["the"]):
                 try:
-                    main()
+                    cli()
                     output = fake_output.getvalue()
                     # Should not find any movies
                     assert "Cat" not in output or "Searching for:" in output
@@ -67,7 +67,7 @@ class TestEndToEndSearch:
         
         with patch('sys.stdout', new=StringIO()):
             try:
-                main()
+                cli()
             except (SystemExit, KeyError):
                 # Should handle gracefully
                 pass
