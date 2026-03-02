@@ -49,7 +49,7 @@ def remove_stop_words(content_tokens: list[str]) -> list[str]:
     """
     new_token: list[str] = []
     for word_token in content_tokens:
-        if (word_token not in get_stop_words()):
+        if (word_token not in get_stop_words()): 
             new_token.append(word_token)
     return new_token
         
@@ -89,7 +89,7 @@ def match_keyword(query: str, content: str) -> bool:
     
 def main() -> None:
     """CLI entry point for keyword-based movie search.
-    
+    //command t o run: poetry run python recall_engine/cli/keyword_search_cli.py search "query string"
     Provides 'search' subcommand to query movies.json dataset by matching
     normalized query tokens against normalized movie titles.
     """
@@ -100,7 +100,7 @@ def main() -> None:
     search_parser.add_argument("query", type=str, help="Search query")
 
     args = parser.parse_args()
-    movies = json.loads(dataset_loader("./data/movies.json"))
+    movies = json.loads(dataset_loader("./data/movies.json")) # poetry runs from project root, so path is relative to root
     match args.command:
         case "search":
             query = standardize_texts(args.query)
