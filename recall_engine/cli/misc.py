@@ -16,17 +16,18 @@ def get_stop_words() -> list[str]:
         print(f"Error Getting Stopping Words: {e}")
         exit()
     
-
-def dataset_loader(fileNameWithDir: str, fileType: str="json") -> list[dict[str, str]] | str:
+def dataset_loader_json(fileNameWithDir: str) -> list[dict[str, str]]:
     try:
         with open(fileNameWithDir) as file:
-            if (fileType == "json"):
-                return json.load(file)
-            elif (fileType == "text"):
+            return json.load(file)
+    except Exception as e:
+        print(f"Error At Reading File: {e}")
+        exit()
+
+def dataset_loader(fileNameWithDir: str) -> str:
+    try:
+        with open(fileNameWithDir) as file:
                 return file.read()
-            else:
-                print(f"Unsupported file type: {fileType}")
-                raise NotImplementedError(f"Unsupported file type: {fileType}")
     except Exception as e:
         print(f"Error At Reading File: {e}")
         exit()
