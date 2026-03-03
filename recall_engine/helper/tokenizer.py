@@ -84,8 +84,8 @@ class Tokenizer():
                 filtered_tokens.append(word)
         return filtered_tokens
             
-
-    def match_keyword(self, query: str, content: str) -> bool:
+    @staticmethod
+    def match_keyword(query: str, content: str) -> bool:
         """Check if query string exists as substring in content (case-insensitive).
         
         Args:

@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 import json
 import argparse
-from nltk.stem import PorterStemmer 
-from recall_engine.cli.misc import get_stop_words, dataset_loader
-import string
+from recall_engine.cli.misc import  dataset_loader
 from recall_engine.cli.misc import DATA_PATH
 from recall_engine.helper.tokenizer import Tokenizer
 
@@ -27,14 +25,15 @@ def cli() -> None:
     match args.command:
         case "search":
             tokenizer = Tokenizer()
+            # args.query example: "The Godfather"
             query = tokenizer.tokenize(args.query)
             print(f"Searching for: {args.query}")
             for index,item in enumerate(movies['movies']):
-                movie_title = standardize_texts( item['title'])
+                movie_title = tokenizer.tokenize(item['title'])
                 for single_query in query:
                     isMatch = False
                     for single_title_token in movie_title:
-                        if match_keyword(single_query, single_title_token):
+                        if tokenizer.match_keyword(single_query, single_title_token):
                             isMatch = True
                     if (isMatch):
                         print(f"{index}: {item['title']}")
