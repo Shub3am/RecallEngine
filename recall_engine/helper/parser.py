@@ -38,6 +38,7 @@ class SearchEngine:
         
         def is_end_of_tokens(self) -> bool:
             return self.cursor >= self.total_tokens
+        
         def parse_OR(self) -> Node:
             """Handles OR expressions (lowest precedence)"""
             left_node = self.parse_AND()
@@ -162,6 +163,88 @@ class SearchEngine:
 
 
 
+
+
+# ==================== AST VISUALIZATION FUNCTIONS ====================
+
+def print_ast_tree(node: Node, prefix: str = "", is_last: bool = True) -> None:
+    """
+    Prints the AST tree in a visual tree format.
+    
+    Args:
+        node: The root node of the AST
+        prefix: Prefix for spacing (used internally for recursion)
+        is_last: Whether this is the last child (used internally for recursion)
+    """
+    if node.value is None:
+        return
+    
+    # Print current node
+    connector = "└── " if is_last else "├── "
+    node_label = f"[{node.nodeType}] {node.value}"
+    print(prefix + connector + node_label)
+    
+    # Calculate prefix for children
+    extension = "    " if is_last else "│   "
+    new_prefix = prefix + extension
+    
+    # Print left child
+    if node.left is not None:
+        print_ast_tree(node.left, new_prefix, node.right is None)
+    
+    # Print right child
+    if node.right is not None:
+        print_ast_tree(node.right, new_prefix, True)
+
+
+def print_ast_inline(node: Node) -> str:
+    """
+    Prints the AST in a compact inline format.
+    
+    Args:
+        node: The root node of the AST
+        
+    Returns:
+        String representation of the AST
+    """
+    if node is None:
+        return ""
+    
+    if node.left is None and node.right is None:
+        # Leaf node (LITERAL)
+        return node.value
+    
+    left_str = print_ast_inline(node.left) if node.left else ""
+    right_str = print_ast_inline(node.right) if node.right else ""
+    
+    if node.value == "NOT":
+        # Unary operator
+        return f"NOT({right_str})"
+    else:
+        # Binary operators (AND, OR)
+        return f"({left_str} {node.value} {right_str})"
+
+
+def get_ast_depth(node: Node) -> int:
+    """
+    Returns the depth (height) of the AST tree.
+    
+    Args:
+        node: The root node of the AST
+        
+    Returns:
+        The depth of the tree
+    """
+    if node is None:
+        return 0
+    
+    left_depth = get_ast_depth(node.left)
+    right_depth = get_ast_depth(node.right)
+    
+    return 1 + max(left_depth, right_depth)
+
+
+
 # For Testing Only
 if __name__ == "__main__":
     query = "The Godfather AND (crime OR drama) NOT comedy"
@@ -176,3 +259,29 @@ if __name__ == "__main__":
     print(parser.tokens, '\n')
     print(parser2.tokens)
     print(parser3.tokens)
+    
+    
+    test_queries = [
+       "The Godfather AND (crime OR drama) NOT comedy",
+       "(bear AND river) OR (mountain AND NOT snow)",
+       "#tag AND _id:234",
+       "apple OR banana",
+       "NOT word",
+    ]
+    for query in test_queries:
+        print("\n" + "="*70)
+        print(f"QUERY: {query}")
+        print("="*70)
+        
+        # Tokenize
+        lexer = SearchEngine.Lexer(query)
+        lexer.scanner()
+        print(f"\nTOKENS: {lexer.tokens}")
+        
+        # Parse
+        parser = SearchEngine.Parser(lexer.tokens)
+        ast = parser.parse_OR()
+        
+        # Display AST
+        print(f"\nAST TREE:")
+        print_ast_tree(ast)
