@@ -16,7 +16,7 @@ def get_stop_words() -> list[str]:
         print(f"Error Getting Stopping Words: {e}")
         exit()
     
-def dataset_loader_json(fileNameWithDir: str) -> list[dict[str, str]]:
+def dataset_loader_json(fileNameWithDir: str) -> dict[str, list[dict[str, str]] | int | str]:
     try:
         with open(fileNameWithDir) as file:
             return json.load(file)
