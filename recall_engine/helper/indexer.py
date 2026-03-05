@@ -4,33 +4,14 @@ import json
 from recall_engine.cli.misc import CACHE_PATH, dataset_loader_json
 from recall_engine.helper.tokenizer import Tokenizer
 
+
 class Indexer:
-    """
-    Indexer class for building and managing inverted indices over document collections.
-    This class provides functionality to build, load, and save inverted indices that map
-    terms to document IDs, enabling efficient document retrieval based on term queries.
+    """Inverted index for efficient document retrieval by terms.
+    
     Attributes:
-        doc_map (dict[str, dict[str|int, str]]): Maps document IDs to their text content or structured data.
-            Example Structures:
-            - Structured: {
-                "doc_id_1": {"title": "Title 1", "body": "Document text content"},
-                "doc_id_2": {"title": "Title 2", "body": "More text"}
-              }
-        index (dict[str, list[int]]): Inverted index mapping terms to lists of document IDs.
-            Example Structure: {
-                "term1": ["doc_array_index_1", "doc_array_index_3"],
-                "term2": ["doc_array_index_2"],
-                "term3": ["doc_array_index_1", "doc_array_index_2", "doc_array_index_3"]
-            }
-            Where each term key maps to a list of document IDs containing that term.
-        default_file_path (str): Default file path for saving and loading index data.
-    Methods:
-        __init__(document_index, document_map, filePath): Initialize the Indexer with document map and index.
-        __add_document(doc_id, text): Add a document to the index (private method).
-        get_document(term): Retrieve document IDs containing a specific term.
-        build(docPath, fileType, docIdKey, docAttrKeys): Build index from a data file.
-        load(filepath): Load a previously saved index from disk.
-        save(filepath): Persist the current index to disk.
+        index: Maps terms to lists of document IDs containing them.
+        doc_map: Maps document IDs to their full document data.
+        default_file_path: Default path for saving/loading the index.
     """
     def __init__(self, document_index: dict[str, list[str]] = {}, document_map: dict[str,dict[str,str]] = {}, filePath: str = CACHE_PATH) -> None:
         self.index = document_index
@@ -39,47 +20,27 @@ class Indexer:
         self.tokenizer = Tokenizer()
         
     def __add_document(self, doc_id: str, text: str) -> None:
-        """Add a document to the index by tokenizing its text and updating term mappings.
+        """Add a document to the index by tokenizing text and updating term mappings.
         
         Args:
-            doc_id: Unique identifier for the document (e.g., array index).
-            text: Raw text content of the document to be indexed.
-        
-        Example progression with sample data:
-            doc_id = "550"
-            text = "The Matrix science fiction action"
+            doc_id: Unique document identifier.
+            text: Text content to index.
         """
         
-        # Step 1: Tokenize the text into individual words
-        # tokens = ["matrix", "science", "fiction", "action"]
+        # Tokenize text and add each token to the index
         tokens = self.tokenizer.tokenize(text)
-        
-        # Step 2: Iterate through each token
         for token in tokens:
-            # Step 3a: Check if token exists in index, if not create empty list
-            # First iteration: "matrix" not in index → self.index["matrix"] = []
             if token not in self.index:
                 self.index[token] = []
-            
-            # Step 3b: Check if doc_id already exists for this token to avoid duplicates
-            # First iteration: "550" not in self.index["matrix"] → append it
-            # self.index["matrix"] = ["550"]
             if doc_id not in self.index[token]:
                 self.index[token].append(doc_id)
-        
-        # Final state of index after processing all tokens:
-        # self.index = {
-        #     "matrix": ["550"],
-        #     "science": ["550"],
-        #     "fiction": ["550"],
-        #     "action": ["550"]
-        # }
     def build(self, docPath: str, docIdKey: str = "id", excludeDocKeys: list[str] = ["id"]) -> None:
-        """Build the inverted index from a data file containing documents.
+        """Build the inverted index from a JSON file.
         
         Args:
-            docPath: File path to the document collection (e.g., JSON file).
-            excludeDocKeys: List of keys in the document dict to exclude from indexing (default is ["id"]).
+            docPath: Path to JSON file containing documents.
+            docIdKey: Document field to use as unique ID.
+            excludeDocKeys: Fields to exclude from indexing.
         """
         dataset = dataset_loader_json(docPath)
 
@@ -92,3 +53,45 @@ class Indexer:
                     text_content += str(value) + " "
             self.doc_map[doc_id] = doc
             self.__add_document(doc_id, text_content.strip())
+            
+            
+    def save(self, filepath: str = "") -> None:
+        """Save index and document map to disk.
+        
+        Args:
+            filepath: Optional file path; defaults to self.default_file_path if not provided.
+        """
+        if filepath == "":
+            filepath = self.default_file_path
+        with open(filepath, "wb") as file:
+            pickle.dump({"index": self.index, "doc_map": self.doc_map}, file)
+            
+    def load(self, filepath: str = "", force: bool = False) -> None:
+        """Load index and document map from disk.
+        
+        Args:
+            filepath: Optional file path; defaults to self.default_file_path if not provided.
+            force: If True, force reload even if index and doc_map are already populated.
+        
+        Raises:
+            RuntimeError: If index already populated and force=False.
+            FileNotFoundError: If the file doesn't exist.
+            ValueError: If the file is corrupted or doesn't contain expected keys.
+        """
+        if self.doc_map and self.index and not force:
+            raise RuntimeError("Index and document map are already populated. Use force=True to reload.")
+        
+        if filepath == "":
+            filepath = self.default_file_path
+        
+        try:
+            with open(filepath, "rb") as file:
+                data = pickle.load(file)
+                self.index = data["index"]
+                self.doc_map = data["doc_map"]
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Index file not found at {filepath}")
+        except pickle.UnpicklingError as e:
+            raise ValueError(f"Failed to load index: corrupted file. {str(e)}")
+        except KeyError as e:
+            raise ValueError(f"Invalid index file: missing key {str(e)}")
