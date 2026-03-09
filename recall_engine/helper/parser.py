@@ -1,3 +1,15 @@
+from typing import Optional
+
+            
+class Node:
+    def __init__(self, 
+                    value: str, 
+                    left: Optional['Node'] = None, 
+                    right: Optional['Node'] = None) -> None:
+        self.nodeType = "OPERATOR" if value in ["AND", "OR", "NOT"] else "LITERAL"
+        self.value = value
+        self.left = left
+        self.right = right
 
 class SearchEngine:
     def __init__(self, query: str):
@@ -7,21 +19,11 @@ class SearchEngine:
 
 
     class Parser:
-            
-        class Node:
-            def __init__(self, 
-                         value: str, 
-                         left: "Node | None" = None, 
-                         right: "Node | None" = None) -> None:
-                self.nodeType = "OPERATOR" if value in ["AND", "OR", "NOT"] else "LITERAL"
-                self.value = value
-                self.left = left
-                self.right = right
+
         def __init__(self, tokens: list[str]) -> None:
             self.tokens: list[str] = tokens
             self.cursor = 0
             self.total_tokens = len(self.tokens)
-            self.Node = self.Node
             
         def peek_token(self):
             if self.is_end_of_tokens():
@@ -36,17 +38,44 @@ class SearchEngine:
         
         def is_end_of_tokens(self) -> bool:
             return self.cursor >= self.total_tokens
-        def parse_AND(self) -> Node | None:
-            left_node: Node = self.parse_primary()
-            node = None
+        def parse_OR(self) -> Node:
+            """Handles OR expressions (lowest precedence)"""
+            left_node = self.parse_AND()
+            while self.peek_token() == "OR":
+                operator = self.advance_token()
+                right_node = self.parse_AND()
+                left_node = Node(operator, left=left_node, right=right_node)
+            return left_node
+
+        def parse_AND(self) -> Node:
+            """Handles AND expressions (higher precedence than OR)"""
+            left_node = self.parse_NOT()
             while self.peek_token() == "AND":
-                operator = self.advance_token() # consume the "AND" token
-                right_node = self.parse_primary()
-                node = self.Node(operator, left=left_node, right=right_node)
-            return node
-        def parse_primary(self) -> Node | None:
-            return self.Node(self.advance_token())
-        
+                operator = self.advance_token()
+                right_node = self.parse_NOT()
+                left_node = Node(operator, left=left_node, right=right_node)
+            return left_node
+
+        def parse_NOT(self) -> Node:
+            """Handles NOT expressions (highest precedence)"""
+            if self.peek_token() == "NOT":
+                operator = self.advance_token()
+                operand = self.parse_NOT()  # NOT can be nested
+                return Node(operator, right=operand)
+            return self.parse_primary()
+
+        def parse_primary(self) -> Node:
+            """Handles literals and parenthesized expressions"""
+            token = self.peek_token()
+            
+            if token == "(":
+                self.advance_token()  # consume "("
+                node = self.parse_OR()  # parse the inner expression
+                self.advance_token()  # consume ")"
+                return node
+            else:
+                return Node(self.advance_token())
+                
        
             
 
