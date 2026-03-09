@@ -9,7 +9,10 @@ class SearchEngine:
     class Parser:
             
         class Node:
-            def __init__(self, value: str, left: str | None =None, right: str | None =None) -> None:
+            def __init__(self, 
+                         value: str, 
+                         left: "Node | None" = None, 
+                         right: "Node | None" = None) -> None:
                 self.nodeType = "OPERATOR" if value in ["AND", "OR", "NOT"] else "LITERAL"
                 self.value = value
                 self.left = left
@@ -18,6 +21,7 @@ class SearchEngine:
             self.tokens: list[str] = tokens
             self.cursor = 0
             self.total_tokens = len(self.tokens)
+            self.Node = self.Node
             
         def peek_token(self):
             if self.is_end_of_tokens():
@@ -32,8 +36,16 @@ class SearchEngine:
         
         def is_end_of_tokens(self) -> bool:
             return self.cursor >= self.total_tokens
-        def parse_primary(self) -> Node:
-            left_token = self.advance_token()
+        def parse_AND(self) -> Node | None:
+            left_node: Node = self.parse_primary()
+            node = None
+            while self.peek_token() == "AND":
+                operator = self.advance_token() # consume the "AND" token
+                right_node = self.parse_primary()
+                node = self.Node(operator, left=left_node, right=right_node)
+            return node
+        def parse_primary(self) -> Node | None:
+            return self.Node(self.advance_token())
         
        
             
