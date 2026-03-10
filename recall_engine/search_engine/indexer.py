@@ -2,7 +2,7 @@
 import os
 import pickle
 from recall_engine.cli.misc import CACHE_PATH, dataset_loader_json
-from recall_engine.helper.tokenizer import Tokenizer
+from recall_engine.search_engine.tokenizer import Tokenizer
 
 
 class Indexer:
