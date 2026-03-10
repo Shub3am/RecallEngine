@@ -1,7 +1,8 @@
 from recall_engine.search_engine.parser import Node
 class Evaluator:
-    def __init__(self, index: dict[str, list[str] ]) -> None:
+    def __init__(self, index: dict[str, list[str] ], doc_map: dict[str, dict[str, str]]) -> None:
         self.index = index
+        self.doc_map = set(doc_map.keys())
 
     def evaluate(self, ast: Node) -> set[str]:
         """Evaluate a parsed query AST against the index and return matching document IDs.
@@ -36,7 +37,8 @@ class Evaluator:
         elif operator == "OR":
             return left_result.union(right_result)
         elif operator == "NOT":
-            return left_result.difference(right_result)
+            # assuming right node based on parser design where NOT is unary and applies to the right operand
+            return self.doc_map.difference(right_result) 
         else:
             raise ValueError(f"Unknown operator: {operator}")
     
