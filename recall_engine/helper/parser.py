@@ -246,21 +246,7 @@ def get_ast_depth(node: Node) -> int:
 
 
 # For Testing Only
-if __name__ == "__main__":
-    query = "The Godfather AND (crime OR drama) NOT comedy"
-    query2 = "(bear AND river) OR (mountain AND NOT snow)"
-    query3 = "#tag AND _id:234"
-    parser = SearchEngine.Lexer(query)
-    parser2 = SearchEngine.Lexer(query2)
-    parser3 = SearchEngine.Lexer(query3)
-    parser.scanner()
-    parser2.scanner()
-    parser3.scanner()
-    print(parser.tokens, '\n')
-    print(parser2.tokens)
-    print(parser3.tokens)
-    
-    
+if __name__ == "__main__":    
     test_queries = [
        "The Godfather AND (crime OR drama) NOT comedy",
        "(bear AND river) OR (mountain AND NOT snow)",
