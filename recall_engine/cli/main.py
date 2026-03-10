@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 from recall_engine.cli.misc import DATA_PATH
-from recall_engine.helper.indexer import Indexer
+from recall_engine.search_engine.indexer import Indexer
 
  
 

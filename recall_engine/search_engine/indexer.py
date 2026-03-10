@@ -19,6 +19,15 @@ class Indexer:
         self.default_file_path = filePath
         self.tokenizer = Tokenizer()
         
+        
+    def get_index(self) -> dict[str, list[str]]:
+        """Returns the current inverted index."""
+        return self.index
+    
+    def get_doc_map(self) -> dict[str, dict[str,str]]:
+        """Returns the current document map."""
+        return self.doc_map
+        
     def __add_document(self, doc_id: str, text: str) -> None:
         """Add a document to the index by tokenizing text and updating term mappings.
         
