@@ -1,7 +1,7 @@
 from nltk.stem import PorterStemmer
 import string
 from typing import cast
-from recall_engine.cli.misc import get_stop_words
+from recall_engine.search_engine.misc import get_stop_words
 class Tokenizer():
     """
     A class to tokenize the documents. It can be used to tokenize the documents while building the index and also while querying the index. It can be used to remove stop words and also to perform stemming and lemmatization. It can be used to perform other preprocessing steps as well.
