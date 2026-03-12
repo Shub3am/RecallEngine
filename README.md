@@ -1,230 +1,145 @@
-# RecallEngine 🔍
+# RecallEngine
 
-**An all-in-one retrieval, indexing, and ingestion tool for RAG and database applications**
+RecallEngine is a lightweight search toolkit for JSON datasets.
 
+It currently provides:
+- Text normalization (lowercase, punctuation removal, tokenization, stop-word filtering, stemming)
+- Inverted-index based keyword retrieval
+- Boolean query evaluation in the library API
+- CLI entrypoint for dataset search
+- Test coverage for toolkit behavior and baseline performance
 
-## 🎯 Vision
+## Vision
 
-RecallEngine aims to be a comprehensive, production-ready toolkit that simplifies the entire data pipeline for Retrieval-Augmented Generation (RAG) systems and modern database applications. It will provide:
+RecallEngine is intended to grow from a local keyword search toolkit into a modular retrieval platform for production RAG and search workloads.
 
-- **🔄 Ingestion**: Flexible data connectors for various sources (documents, APIs, databases)
-- **📊 Indexing**: Multiple indexing strategies (inverted index, vector embeddings, hybrid search)
-- **🔍 Retrieval**: Advanced search capabilities (keyword, semantic, hybrid) with ranking algorithms
-- **⚡ Performance**: Optimized for speed and scalability
-- **🛠️ Developer-Friendly**: Simple APIs and CLI tools for rapid integration
+The long-term vision is to provide a single, composable engine where developers can ingest data, index it with multiple strategies, retrieve relevant context with robust ranking, and expose the system through clean APIs and operational tooling.
 
----
+## Status
 
-## 📈 Current Status
+Version: 0.1.0 (active development)
 
-RecallEngine is in **active development** (v0.1.0). The foundational components are being built to establish a solid base for the complete system.
+Core indexing and boolean query flow are implemented. Ranking algorithms such as BM25 and TF-IDF are planned next.
 
-### ✅ Implemented Features
+## Requirements
 
-- **Text Normalization Pipeline**
-  - Lowercase conversion
-  - Punctuation removal
-  - Tokenization
-  - Stop word filtering
-  - Porter Stemming algorithm
+- Python >= 3.12
+- Poetry
 
-- **Keyword-Based Search**
-  - Query-to-document matching
-  - Case-insensitive search
-  - Token-based matching
-
-- **CLI Interface**
-  - Movie dataset search (proof of concept)
-  - Command-line query interface
-
-- **Testing Infrastructure**
-  - Unit tests with pytest
-  - Integration tests
-  - Code coverage reporting
-
-### 🚧 In Progress
-
-- **Indexer Module**: Building inverted index structures for efficient retrieval
-- **BM25 Ranking**: Implementation of probabilistic ranking algorithm
-- **Data Connectors**: Expanding beyond movie dataset to support multiple formats
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Python ≥ 3.12
-- [Poetry](https://python-poetry.org/) (for dependency management)
-
-### Installation
+## Install
 
 ```bash
-# Clone the repository
 git clone https://github.com/Shub3am/RecallEngine
 cd RecallEngine
-
-# Install dependencies
 poetry install --with dev
 ```
 
-### Quick Start
+## Quick Start
+
+Run the CLI against the bundled movie dataset:
 
 ```bash
-# Search the movie dataset
 poetry run recall_engine search "action hero"
 ```
 
----
-
-## 📖 Usage Examples
-
-### Basic Search
+Equivalent module invocation:
 
 ```bash
-poetry run python recall_engine/cli/keyword_search_cli.py search "romantic comedy"
+poetry run python -m recall_engine search "action hero"
 ```
 
-### Programmatic Usage (Coming Soon)
+## Library Usage
 
 ```python
-from recall_engine import RecallEngine
+from recall_engine.search_engine import SearchEngine
 
-# Initialize engine
-engine = RecallEngine()
+engine = SearchEngine()
+engine.load_or_build_index(
+    doc_path="datasets/movies.json",
+    data_key="movies",
+    doc_id_key="id",
+    exclude_doc_keys=["id"],
+)
 
-# Index documents
-engine.index_documents(documents)
-
-# Perform search
-results = engine.search("query", method="hybrid", top_k=10)
+# Auto mode picks keyword vs boolean behavior based on operators.
+results = engine.search("apple AND NOT banana", mode="auto")
+print(results[:3])
 ```
 
----
+## Project Structure
 
-## 🗺️ Roadmap
-
-### Phase 1: Core Indexing (Current)
-- [x] Text normalization pipeline
-- [x] Basic keyword search
-- [ ] Complete inverted index implementation
-- [ ] BM25 ranking algorithm
-- [ ] TF-IDF scoring
-
-### Phase 2: Advanced Retrieval
-- [ ] Vector embeddings integration
-- [ ] Semantic search capabilities
-- [ ] Hybrid search (keyword + semantic)
-- [ ] Re-ranking algorithms
-- [ ] Query expansion
-
-### Phase 3: Ingestion Pipeline
-- [ ] Document parsers (PDF, DOCX, HTML, Markdown)
-- [ ] Batch processing
-- [ ] Streaming ingestion
-- [ ] Data validation and cleaning
-- [ ] Multiple data source connectors
-
-### Phase 4: Production Features
-- [ ] Persistent storage backends
-- [ ] Distributed indexing
-- [ ] API server (REST/GraphQL)
-- [ ] Caching layer
-- [ ] Monitoring and analytics
-
-### Phase 5: RAG Integration
-- [ ] LLM context preparation
-- [ ] Prompt engineering utilities
-- [ ] Context window optimization
-- [ ] Citation tracking
-- [ ] Response grounding
-
----
-
-## 🏗️ Architecture
-
-```
+```text
 RecallEngine/
+├── datasets/
+│   ├── load_dataset.py
+│   ├── movies.json
+│   └── msmarco_passages.json
 ├── recall_engine/
-│   ├── cli/               # Command-line interfaces
-│   │   ├── keyword_search_cli.py
-│   │   ├── misc.py
-│   │   └── indexer.py
-│   ├── helper/            # Helper utilities
-│   │   └── stop_words.txt
-│   ├── ingestion/         # [Planned] Data ingestion modules
-│   ├── indexing/          # [Planned] Index structures
-│   ├── retrieval/         # [Planned] Search algorithms
-│   └── embeddings/        # [Planned] Vector operations
-├── tests/                 # Test suite
-└── data/                  # Sample datasets
+│   ├── __main__.py
+│   ├── cache/
+│   ├── cli/
+│   │   ├── __init__.py
+│   │   └── main.py
+│   └── search_engine/
+│       ├── __init__.py
+│       ├── engine.py
+│       ├── evaluator.py
+│       ├── indexer.py
+│       ├── lexer.py
+│       ├── misc.py
+│       ├── parser.py
+│       ├── tokenizer.py
+│       ├── utils.py
+│       └── stop_words.txt
+├── tests/
+│   ├── test_search_engine_performance.py
+│   └── test_search_engine_toolkit.py
+├── DEVELOPER_GUIDE.md
+├── pyproject.toml
+└── README.md
 ```
 
----
-
-## 🧪 Testing
+## Testing
 
 ```bash
-# Run all tests
+# All tests
 poetry run pytest -v
 
-# Run with coverage
-poetry run pytest --cov=recall_engine --cov-report=term-missing
+# Toolkit tests
+poetry run pytest tests/test_search_engine_toolkit.py -v
 
-# Generate HTML coverage report
-poetry run pytest --cov=recall_engine --cov-report=html
-open htmlcov/index.html
+# Performance baseline test
+poetry run pytest tests/test_search_engine_performance.py -v -s
+
+# Coverage
+poetry run pytest --cov=recall_engine --cov-report=term-missing
 ```
 
----
+## Roadmap
 
-## 🤝 Contributing
+- Add BM25 scoring
+- Add TF-IDF scoring
+- Expose search mode controls in CLI
+- Add more datasets and ingestion connectors
+- Add CI checks for performance regression thresholds
 
-Contributions are welcome! RecallEngine is being built to solve real-world retrieval challenges, and your input can help shape its future.
+## Future of the Library
 
-### Development Setup
+RecallEngine is expected to evolve into a layered system with:
+- Pluggable retrieval modes: keyword, boolean, semantic, and hybrid
+- Better ranking: BM25, TF-IDF, and learning-to-rank ready interfaces
+- Ingestion connectors: files, APIs, and database sources
+- Persistence options: local cache first, then backend adapters
+- Service layer: API endpoints and deployment-ready interfaces
+- Observability hooks: latency metrics, quality evaluation, and traceable query flow
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes and add tests
-4. Ensure all tests pass (`poetry run pytest`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
+The target outcome is a library that starts simple for local experimentation and scales to production retrieval stacks without forcing a rewrite.
 
-See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for detailed development instructions.
+## Contributing
 
----
+1. Create a feature branch.
+2. Add or update tests with your changes.
+3. Run `poetry run pytest`.
+4. Open a pull request.
 
-## 📝 Documentation
-
-- [Developer Guide](DEVELOPER_GUIDE.md) - Detailed development instructions and conventions
-- API Documentation (Coming Soon)
-- Tutorials (Coming Soon)
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- NLTK for natural language processing tools
-- The information retrieval research community
-- All contributors and users of RecallEngine
-
----
-
-## 📬 Contact
-
-For questions, suggestions, or discussions:
-
-- GitHub Issues: [Report a bug or request a feature](https://github.com/Shub3am/RecallEngine/issues)
-- Maintainer: [@Shub3am](https://github.com/Shub3am)
-
----
-
-**Note**: RecallEngine is under active development. APIs and features may change as the project evolves. Star ⭐ the repository to stay updated!
+See `DEVELOPER_GUIDE.md` for development conventions.
