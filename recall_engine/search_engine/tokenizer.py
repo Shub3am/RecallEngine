@@ -7,8 +7,11 @@ class Tokenizer():
     """
     A class to tokenize the documents. It can be used to tokenize the documents while building the index and also while querying the index. It can be used to remove stop words and also to perform stemming and lemmatization. It can be used to perform other preprocessing steps as well.
         """
+    _PUNCT_TABLE = str.maketrans("", "", string.punctuation)
+
     def __init__(self, stop_words: list[str] | None = None, stop_words_path: str | None = None) -> None:
         self.stop_words = stop_words if stop_words is not None else self._load_stop_words(stop_words_path)
+        self._stop_word_set = set(self.stop_words)
         self.stemmer = PorterStemmer()
 
     @staticmethod
@@ -79,8 +82,7 @@ class Tokenizer():
         Returns:
             String with all punctuation removed
         """
-        punctuation_table = str.maketrans("", "", string.punctuation)
-        return content.translate(punctuation_table)
+        return content.translate(self._PUNCT_TABLE)
 
     def _remove_stop_words(self, content_tokens: list[str]) -> list[str]:
         """Filter out common stop words from token list.
@@ -91,11 +93,7 @@ class Tokenizer():
         Returns:
             List of tokens with stop words removed
         """
-        filtered_tokens: list[str] = []
-        for word in content_tokens:
-            if word not in self.stop_words:
-                filtered_tokens.append(word)
-        return filtered_tokens
+        return [word for word in content_tokens if word not in self._stop_word_set]
             
     @staticmethod
     def match_keyword(query: str, content: str) -> bool:

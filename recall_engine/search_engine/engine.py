@@ -68,9 +68,10 @@ class SearchEngine:
     def _search_boolean(self, query: str) -> list[dict[str, str]]:
         tokens = Lexer(query).tokens
         ast = Parser().parse(tokens)
-        evaluator = Evaluator(self.indexer.get_index(), self.indexer.get_doc_map(), tokenizer=self.tokenizer)
+        doc_map = self.indexer.get_doc_map()
+        evaluator = Evaluator(self.indexer.get_index(), doc_map, tokenizer=self.tokenizer)
         doc_ids = evaluator.evaluate(ast)
-        return [self.indexer.get_doc_map()[doc_id] for doc_id in sorted(doc_ids) if doc_id in self.indexer.get_doc_map()]
+        return [doc_map[doc_id] for doc_id in sorted(doc_ids) if doc_id in doc_map]
 
 
 def build_engine(doc_path: str, data_key: str = "movies") -> SearchEngine:
