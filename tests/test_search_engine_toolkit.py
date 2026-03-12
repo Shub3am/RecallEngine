@@ -4,6 +4,7 @@ import pytest
 
 from recall_engine.search_engine import Indexer, SearchEngine
 
+#Test Command: poetry run pytest tests/test_search_engine_toolkit.py -v -s
 
 @pytest.fixture
 def sample_dataset_path(tmp_path: str) -> str:
@@ -15,15 +16,16 @@ def sample_dataset_path(tmp_path: str) -> str:
             {"id": "4", "title": "Comedy Night", "overview": "funny show"},
         ]
     }
-    dataset_file = tmp_path or "dataset.json"
-    with open(dataset_file, "w", encoding="utf-8") as f:
+    dataset_file = tmp_path / "dataset.json"
+        
+    with open(dataset_file, "w+", encoding="utf-8") as f:
         json.dump(data, f)
     return str(dataset_file)
 
 
 @pytest.fixture
 def engine(sample_dataset_path: str, tmp_path: str) -> SearchEngine:
-    index_file = tmp_path or "cache.pkl"
+    index_file = tmp_path / "cache.pkl"
     indexer = Indexer(file_path=str(index_file))
     search_engine = SearchEngine(indexer=indexer)
     search_engine.build_index(
