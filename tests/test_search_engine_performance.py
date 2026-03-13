@@ -125,3 +125,60 @@ def test_search_engine_performance_real_world_sample(tmp_path):
     assert build_ms < 25000
     assert keyword_ms < 3000
     assert boolean_ms < 4000
+
+
+@pytest.mark.slow
+def test_ranked_retrieval_on_msmarco_sample(tmp_path):
+    src_dataset = Path(__file__).resolve().parents[1] / "datasets" / "msmarco_passages.json"
+    if not src_dataset.exists():
+        pytest.skip("msmarco_passages.json not found in datasets/")
+
+    dataset_path = tmp_path / "ranked_msmarco_sample.json"
+    cache_path = tmp_path / "ranked_msmarco_cache.pkl"
+    _build_real_world_sample(src_dataset, dataset_path, size=10000)
+
+    indexer = Indexer(file_path=str(cache_path))
+    engine = SearchEngine(indexer=indexer)
+    engine.build_index(
+        doc_path=str(dataset_path),
+        data_key="docs",
+        doc_id_key="id",
+        exclude_doc_keys=["id"],
+        persist=False,
+    )
+
+    queries = [
+        "what is the capital of france",
+        "how does the immune system work",
+        "bank regulation financial market",
+        "machine learning neural network",
+    ]
+
+    for query in queries:
+        bm25_start = time.perf_counter()
+        bm25_results = engine.search(query, mode="bm25", top_k=5)
+        bm25_ms = (time.perf_counter() - bm25_start) * 1000
+
+        tfidf_start = time.perf_counter()
+        tfidf_results = engine.search(query, mode="tfidf", top_k=5)
+        tfidf_ms = (time.perf_counter() - tfidf_start) * 1000
+
+        print(f"\nQuery: '{query}'")
+        print(f"  BM25 ({bm25_ms:.2f}ms) — {len(bm25_results)} results")
+        for r in bm25_results:
+            score = r.get("score", 0)
+            snippet = r.get("text", "")[:120].replace("\n", " ")
+            print(f"    [{r['rank']}] score={score:.4f} | {snippet}")
+
+        print(f"  TF-IDF ({tfidf_ms:.2f}ms) — {len(tfidf_results)} results")
+        for r in tfidf_results:
+            score = r.get("score", 0)
+            snippet = r.get("text", "")[:120].replace("\n", " ")
+            print(f"    [{r['rank']}] score={score:.4f} | {snippet}")
+
+        assert len(bm25_results) > 0
+        assert len(tfidf_results) > 0
+        assert bm25_results[0]["score"] >= bm25_results[-1]["score"]
+        assert tfidf_results[0]["score"] >= tfidf_results[-1]["score"]
+        assert bm25_ms < 5000
+        assert tfidf_ms < 5000
