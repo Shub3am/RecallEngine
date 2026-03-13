@@ -4,10 +4,15 @@ from recall_engine.search_engine.utils import Node
 
 class Parser:
     def parse(self, tokens: list[str]) -> Node:
+        if not tokens:
+            raise ValueError("Query cannot be empty")
+
         self._tokens = tokens
         self._cursor = 0
         self._total_tokens = len(self._tokens)
         ast = self._parse_or()
+        if not self._is_end_of_tokens():
+            raise ValueError(f"Unexpected token '{self._peek_token()}' in query")
         return ast
     
     def _peek_token(self):
@@ -53,10 +58,21 @@ class Parser:
     def _parse_primary(self) -> Node:
         """Handles literals and parenthesized expressions"""
         token = self._peek_token()
+
+        if token == "":
+            raise ValueError("Unexpected end of query")
+
+        if token in {"AND", "OR"}:
+            raise ValueError(f"Unexpected operator '{token}' in query")
+
+        if token == ")":
+            raise ValueError("Unexpected ')' in query")
         
         if token == "(":
             self._advance_token()  # consume "("
             node = self._parse_or()  # parse the inner expression
+            if self._peek_token() != ")":
+                raise ValueError("Unmatched '(' in query")
             self._advance_token()  # consume ")"
             return node
         else:

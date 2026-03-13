@@ -38,6 +38,32 @@ def engine(sample_dataset_path: str, tmp_path: str) -> SearchEngine:
     return search_engine
 
 
+@pytest.fixture
+def ranking_engine(tmp_path: str) -> SearchEngine:
+    data = {
+        "docs": [
+            {"id": "1", "title": "Apple Apple", "overview": "fresh apple fruit"},
+            {"id": "2", "title": "Red Apple", "overview": "fresh fruit"},
+            {"id": "3", "title": "Banana Only", "overview": "tropical fruit"},
+        ]
+    }
+    dataset_file = tmp_path / "ranking_docs.json"
+    with open(dataset_file, "w", encoding="utf-8") as file:
+        json.dump(data, file)
+
+    index_file = tmp_path / "ranking_cache.pkl"
+    indexer = Indexer(file_path=str(index_file))
+    search_engine = SearchEngine(indexer=indexer)
+    search_engine.build_index(
+        doc_path=str(dataset_file),
+        data_key="docs",
+        doc_id_key="id",
+        exclude_doc_keys=["id"],
+        persist=False,
+    )
+    return search_engine
+
+
 def _ids(results: list[dict[str, str]]) -> list[str]:
     return [str(doc["id"]) for doc in results]
 
@@ -82,6 +108,11 @@ def test_invalid_mode_raises_value_error(engine: SearchEngine):
         engine.search("apple", mode="neural")
 
 
+def test_invalid_top_k_raises_value_error(engine: SearchEngine):
+    with pytest.raises(ValueError, match="top_k must be a positive integer"):
+        engine.search("apple", mode="bm25", top_k=0)
+
+
 def test_tfidf_search_returns_ranked_results(engine: SearchEngine):
     results = engine.search("apple banana", mode="tfidf", top_k=2)
 
@@ -98,3 +129,25 @@ def test_bm25_search_returns_ranked_results(engine: SearchEngine):
     assert _ids(results) == ["2", "3"]
     assert results[0]["score"] >= results[1]["score"]
     assert results[1]["rank"] == 2
+
+
+def test_ranked_search_uses_frequency_aware_statistics(ranking_engine: SearchEngine):
+    results = ranking_engine.search("apple", mode="tfidf", top_k=2)
+
+    assert _ids(results) == ["1", "2"]
+    assert results[0]["score"] > results[1]["score"]
+
+
+def test_boolean_query_with_unmatched_parenthesis_raises_value_error(engine: SearchEngine):
+    with pytest.raises(ValueError, match="Unmatched '\\(' in query"):
+        engine.search("(apple AND banana", mode="boolean")
+
+
+def test_boolean_query_with_dangling_operator_raises_value_error(engine: SearchEngine):
+    with pytest.raises(ValueError, match="Unexpected end of query"):
+        engine.search("apple AND", mode="boolean")
+
+
+def test_boolean_query_with_trailing_tokens_raises_value_error(engine: SearchEngine):
+    with pytest.raises(ValueError, match="Unexpected token '\\)' in query"):
+        engine.search("apple )", mode="boolean")
