@@ -1,4 +1,4 @@
-from recall_engine.search_engine.parser import Node
+from recall_engine.search_engine.utils import Node
 class Evaluator:
     def __init__(self, index: dict[str, list[str] ], doc_map: dict[str, dict[str, str]]) -> None:
         self.index = index

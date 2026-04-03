@@ -1,15 +1,6 @@
-from typing import Optional
+from recall_engine.search_engine.utils import Node
 
-            
-class Node:
-    def __init__(self, 
-                    value: str, 
-                    left: Optional['Node'] = None, 
-                    right: Optional['Node'] = None) -> None:
-        self.nodeType = "OPERATOR" if value in ["AND", "OR", "NOT"] else "LITERAL"
-        self.value = value
-        self.left = left
-        self.right = right
+
 
 class Parser:
     def parse(self, tokens: list[str]) -> Node:
