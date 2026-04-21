@@ -1,8 +1,17 @@
 from recall_engine.search_engine.utils import Node
+from recall_engine.search_engine.tokenizer import Tokenizer
+
+
 class Evaluator:
-    def __init__(self, index: dict[str, list[str] ], doc_map: dict[str, dict[str, str]]) -> None:
+    def __init__(
+        self,
+        index: dict[str, list[str]],
+        doc_map: dict[str, dict[str, str]],
+        tokenizer: Tokenizer | None = None,
+    ) -> None:
         self.index = index
         self.doc_map = set(doc_map.keys())
+        self.tokenizer = tokenizer if tokenizer is not None else Tokenizer()
 
     def evaluate(self, ast: Node) -> set[str]:
         """Evaluate a parsed query AST against the index and return matching document IDs.
@@ -51,4 +60,11 @@ class Evaluator:
         Returns:
             A set of document IDs that contain the literal token.
         """
-        return set(self.index.get(literal, []))
+        normalized = self.tokenizer.tokenize(literal)
+        if not normalized:
+            return set()
+
+        matched: set[str] = set()
+        for token in normalized:
+            matched.update(self.index.get(token, []))
+        return matched
