@@ -1,14 +1,27 @@
 from nltk.stem import PorterStemmer
 import string
+from pathlib import Path
 from typing import cast
-from recall_engine.search_engine.misc import get_stop_words
+
 class Tokenizer():
     """
     A class to tokenize the documents. It can be used to tokenize the documents while building the index and also while querying the index. It can be used to remove stop words and also to perform stemming and lemmatization. It can be used to perform other preprocessing steps as well.
         """
-    def __init__(self) -> None:
-        self.stop_words = get_stop_words()
+    def __init__(self, stop_words: list[str] | None = None, stop_words_path: str | None = None) -> None:
+        self.stop_words = stop_words if stop_words is not None else self._load_stop_words(stop_words_path)
         self.stemmer = PorterStemmer()
+
+    @staticmethod
+    def _default_stop_words_path() -> Path:
+        return Path(__file__).resolve().parent / "stop_words.txt"
+
+    def _load_stop_words(self, stop_words_path: str | None) -> list[str]:
+        path = Path(stop_words_path) if stop_words_path else self._default_stop_words_path()
+        try:
+            with path.open("r", encoding="utf-8") as words_file:
+                return words_file.read().splitlines()
+        except OSError as exc:
+            raise RuntimeError(f"Unable to load stop words from '{path}': {exc}") from exc
     def tokenize(self, content: str) -> list[str]:
         """ 
         Normalize text through a multi-step pipeline for search matching.
