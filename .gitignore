@@ -35,6 +35,7 @@ htmlcov/
 .env
 .env.*
 !.env.example
+/datasets/*.json
 
 # IDE / editor
 .vscode/
