@@ -38,9 +38,7 @@ class Indexer:
     def __add_document(self, doc_id: str, text: str) -> None:
         tokens = self.tokenizer.tokenize(text)
         for token in tokens:
-            self.index.setdefault(token, [])
-            if doc_id not in self.index[token]:
-                self.index[token].append(doc_id)
+            self.index.setdefault(token, []).append(doc_id)
 
     def build(
         self,
@@ -49,7 +47,7 @@ class Indexer:
         docIdKey: str = "id",
         excludeDocKeys: list[str] | None = None,
     ) -> None:
-        exclude_keys = excludeDocKeys if excludeDocKeys is not None else ["id"]
+        exclude_keys = set(excludeDocKeys if excludeDocKeys is not None else ["id"])
         data = self._dataset_loader_json(docPath)
 
         if dataKey:
@@ -71,12 +69,9 @@ class Indexer:
             if docIdKey not in doc:
                 continue
             doc_id = str(doc[docIdKey])
-            text_parts: list[str] = []
-            for key, value in doc.items():
-                if key not in exclude_keys:
-                    text_parts.append(str(value))
+            text_parts = [str(value) for key, value in doc.items() if key not in exclude_keys]
             self.doc_map[doc_id] = doc  # type: ignore[assignment]
-            self.__add_document(doc_id, " ".join(text_parts).strip())
+            self.__add_document(doc_id, " ".join(text_parts))
 
     def save(self, filepath: str = "") -> None:
         path = filepath or self.default_file_path
@@ -128,17 +123,27 @@ class Indexer:
             return []
 
         op = operation.upper() if operation else "OR"
-        term_sets = [set(self.index.get(token, [])) for token in normalized_terms]
-
         if op == "AND":
-            matched_ids = term_sets[0].copy()
-            for ids in term_sets[1:]:
-                matched_ids &= ids
+            matched_ids: set[str] | None = None
+            for token in normalized_terms:
+                token_ids = set(self.index.get(token, []))
+                if matched_ids is None:
+                    matched_ids = token_ids
+                else:
+                    matched_ids &= token_ids
+                if not matched_ids:
+                    break
+            resolved_ids = matched_ids if matched_ids is not None else set()
         elif op == "NOT":
-            matched_ids = term_sets[0].copy()
-            excluded = set().union(*term_sets[1:]) if len(term_sets) > 1 else set()
-            matched_ids -= excluded
+            resolved_ids = set(self.index.get(normalized_terms[0], []))
+            if len(normalized_terms) > 1:
+                excluded: set[str] = set()
+                for token in normalized_terms[1:]:
+                    excluded.update(self.index.get(token, []))
+                resolved_ids -= excluded
         else:
-            matched_ids = set().union(*term_sets)
+            resolved_ids: set[str] = set()
+            for token in normalized_terms:
+                resolved_ids.update(self.index.get(token, []))
 
-        return [self.doc_map[doc_id] for doc_id in sorted(matched_ids) if doc_id in self.doc_map]
+        return [self.doc_map[doc_id] for doc_id in sorted(resolved_ids) if doc_id in self.doc_map]

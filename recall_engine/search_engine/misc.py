@@ -4,7 +4,7 @@ import json
 PROJECT_ROOT = "./recall_engine"
 STOP_WORDS_PATH = f"{PROJECT_ROOT}/helper/stop_words.txt"
 CACHE_PATH = f"{PROJECT_ROOT}/cache/cache.pkl"
-DATA_PATH = f"./data/movies.json"
+DATA_PATH = f"./datasets/movies.json"
 def get_stop_words() -> list[str]:
     try:
         with open(STOP_WORDS_PATH) as words:
