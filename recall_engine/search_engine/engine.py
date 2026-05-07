@@ -2,6 +2,7 @@ from recall_engine.search_engine.evaluator import Evaluator
 from recall_engine.search_engine.indexer import Indexer
 from recall_engine.search_engine.lexer import Lexer
 from recall_engine.search_engine.parser import Parser
+from recall_engine.search_engine.ranked_retrieval import RankedRetrieval
 from recall_engine.search_engine.tokenizer import Tokenizer
 
 
@@ -46,15 +47,17 @@ class SearchEngine:
             excludeDocKeys=exclude_doc_keys,
         )
 
-    def search(self, query: str, mode: str = "auto") -> list[dict[str, str]]:
+    def search(self, query: str, mode: str = "auto", top_k: int | None = None) -> list[dict[str, str]]:
         selected_mode = self._resolve_mode(query, mode)
         if selected_mode == "boolean":
             return self._search_boolean(query)
+        if selected_mode in {"bm25", "tfidf"}:
+            return self._search_ranked(query, method=selected_mode, top_k=top_k)
         return self._search_keyword(query)
 
     def _resolve_mode(self, query: str, mode: str) -> str:
-        if mode not in {"auto", "keyword", "boolean"}:
-            raise ValueError("mode must be one of: auto, keyword, boolean")
+        if mode not in {"auto", "keyword", "boolean", "bm25", "tfidf"}:
+            raise ValueError("mode must be one of: auto, keyword, boolean, bm25, tfidf")
         if mode != "auto":
             return mode
 
@@ -72,6 +75,14 @@ class SearchEngine:
         evaluator = Evaluator(self.indexer.get_index(), doc_map, tokenizer=self.tokenizer)
         doc_ids = evaluator.evaluate(ast)
         return [doc_map[doc_id] for doc_id in sorted(doc_ids) if doc_id in doc_map]
+
+    def _search_ranked(self, query: str, method: str, top_k: int | None = None) -> list[dict[str, str]]:
+        ranked_retrieval = RankedRetrieval(
+            self.indexer.get_index(),
+            self.indexer.get_doc_map(),
+            tokenizer=self.tokenizer,
+        )
+        return ranked_retrieval.rank(query, method=method, top_k=top_k)
 
 
 def build_engine(doc_path: str, data_key: str = "movies") -> SearchEngine:
