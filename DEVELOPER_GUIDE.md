@@ -1,109 +1,124 @@
-# RecallEngine — Developer Guide
+# RecallEngine Developer Guide
 
 ## Overview
 
-RecallEngine is a keyword-based search engine over a movie dataset ( currently ). The core pipeline normalizes input text (lowercase → strip punctuation → tokenize → remove stop words → Porter stem) before matching against indexed titles.
+RecallEngine is a Python search toolkit built around an inverted index and normalization pipeline.
 
----
+Current capabilities:
+- Keyword retrieval
+- Boolean retrieval (library API)
+- JSON dataset indexing
+- Persistent cache file for index/doc map
+
+Main package surface:
+- `recall_engine.search_engine.SearchEngine`
+- `recall_engine.search_engine.Indexer`
+
+## Vision
+
+RecallEngine is being developed toward a complete retrieval foundation for modern AI and search applications.
+
+The goal is to keep the core developer experience simple while expanding capabilities so the same library can support both local prototypes and production retrieval systems.
 
 ## Requirements
 
-- Python ≥ 3.12
-- [Poetry](https://python-poetry.org/)
-
----
+- Python >= 3.12
+- Poetry
 
 ## Setup
 
 ```bash
-git clone <"https://github.com/Shub3am/RecallEngine">
+git clone https://github.com/Shub3am/RecallEngine
 cd RecallEngine
 poetry install --with dev
 ```
 
----
-
-## Project Structure
-
-```
-RecallEngine/
-├── pyproject.toml
-├── poetry.lock
-├── recall_engine/
-│   ├── cli/
-│   │   ├── keyword_search_cli.py   # Core pipeline: normalize, match, CLI entry
-│   │   ├── misc.py                 # get_stop_words, dataset_loader
-│   │   └── indexer.py
-│   └── helper/
-│       └── stop_words.txt
-└── tests/
-    ├── conftest.py
-    ├── test_keyword_search_cli.py
-    ├── test_misc.py
-    └── test_integration.py
-```
-
----
-
-## Running the CLI
+## Run CLI
 
 ```bash
-poetry run python recall_engine/cli/keyword_search_cli.py search "<query>"
+poetry run recall_engine search "your query"
 ```
 
----
-
-## Testing
+Alternative entrypoint:
 
 ```bash
-# Run all tests
+poetry run python -m recall_engine search "your query"
+```
+
+Notes:
+- Current CLI command is `search` with a single positional `query` argument.
+- CLI currently uses keyword retrieval via the indexer flow.
+
+## Run Tests
+
+```bash
+# Entire suite
 poetry run pytest -v
 
-# Run a specific module, class, or method
-poetry run pytest tests/test_keyword_search_cli.py::TestTokensStemmer -v
+# Toolkit behavior tests
+poetry run pytest tests/test_search_engine_toolkit.py -v
 
-# Filter by name
-poetry run pytest -k "stemmer" -v
+# Performance baseline test
+poetry run pytest tests/test_search_engine_performance.py -v -s
 
-# With coverage
+# Coverage
 poetry run pytest --cov=recall_engine --cov-report=term-missing
-
-# HTML coverage report
-poetry run pytest --cov=recall_engine --cov-report=html
-open htmlcov/index.html
-
-# Watch mode
-poetry run ptw -- -v
 ```
 
-> Always invoke pytest via `poetry run` to ensure the project's virtualenv is active.
+## High-Level Architecture
 
----
-
-## Conventions
-
-**Imports** — use absolute imports throughout:
-
-```python
-from recall_engine.cli.misc import get_stop_words, dataset_loader
+```text
+recall_engine/
+├── __main__.py                     # Module entrypoint
+├── cli/main.py                     # Console script target (recall_engine)
+└── search_engine/
+    ├── engine.py                   # SearchEngine facade
+    ├── indexer.py                  # Inverted index + cache load/save
+    ├── lexer.py                    # Query lexer for boolean syntax
+    ├── parser.py                   # AST parser
+    ├── evaluator.py                # Boolean AST evaluator
+    ├── tokenizer.py                # Normalization/tokenization pipeline
+    ├── misc.py                     # Paths and dataset helpers
+    └── utils.py                    # Shared AST node utilities
 ```
 
-**Mocking** — patch at the point of use, not the point of definition:
+## Development Conventions
 
-```python
-@patch('recall_engine.cli.keyword_search_cli.get_stop_words')
-def test_something(self, mock_stop_words): ...
-```
+- Use absolute imports from `recall_engine`.
+- Keep public behavior covered by tests before refactors.
+- Preserve backward-compatible parameter names where already used by tests.
+- Use `poetry run` for all commands to ensure the project environment is active.
 
----
-
-## Dependencies
+## Dependency Management
 
 ```bash
-poetry add <package>                 # Runtime
-poetry add --group dev <package>     # Development
-poetry update                        # Update all
-poetry show --outdated               # Check for updates
+# Runtime dependency
+poetry add <package>
+
+# Dev dependency
+poetry add --group dev <package>
+
+# Upgrade dependencies
+poetry update
+
+# Check outdated dependencies
+poetry show --outdated
 ```
 
----
+## Next Suggested Work
+
+- Implement BM25 scoring in the search layer.
+- Add ranking mode selection in library and CLI.
+- Add malformed query and index corruption edge-case tests.
+
+## Future Direction
+
+Planned evolution of the library:
+- Retrieval depth: keyword and boolean today, semantic and hybrid retrieval next
+- Ranking quality: BM25 and TF-IDF first, then extensible ranking interfaces
+- Data ingestion: broader connectors beyond local JSON datasets
+- Runtime surfaces: stable Python API and optional service/API layer
+- Production readiness: persistence backends, performance instrumentation, and evaluation tooling
+
+Target state:
+- A modular retrieval engine for RAG pipelines where ingestion, indexing, retrieval, and ranking are separable components that can be combined based on workload.
