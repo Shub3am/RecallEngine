@@ -1,6 +1,7 @@
 import json
 import pickle
 from pathlib import Path
+from typing import Any
 
 from recall_engine.search_engine.tokenizer import Tokenizer
 
@@ -12,11 +13,21 @@ class Indexer:
         self,
         document_index: dict[str, list[str]] | None = None,
         document_map: dict[str, dict[str, str]] | None = None,
+        term_frequencies: dict[str, dict[str, int]] | None = None,
+        document_frequencies: dict[str, int] | None = None,
+        document_lengths: dict[str, int] | None = None,
+        total_documents: int = 0,
+        average_document_length: float = 0.0,
         file_path: str | None = None,
         tokenizer: Tokenizer | None = None,
     ) -> None:
         self.index = document_index if document_index is not None else {}
         self.doc_map = document_map if document_map is not None else {}
+        self.term_frequencies = term_frequencies if term_frequencies is not None else {}
+        self.document_frequencies = document_frequencies if document_frequencies is not None else {}
+        self.document_lengths = document_lengths if document_lengths is not None else {}
+        self.total_documents = total_documents
+        self.average_document_length = average_document_length
         self.default_file_path = file_path or str(self._default_cache_path())
         self.tokenizer = tokenizer if tokenizer is not None else Tokenizer()
 
@@ -35,10 +46,38 @@ class Indexer:
     def get_doc_map(self) -> dict[str, dict[str, str]]:
         return self.doc_map
 
+    def get_term_frequencies(self) -> dict[str, dict[str, int]]:
+        return self.term_frequencies
+
+    def get_document_frequencies(self) -> dict[str, int]:
+        return self.document_frequencies
+
+    def get_document_lengths(self) -> dict[str, int]:
+        return self.document_lengths
+
+    def get_total_documents(self) -> int:
+        return self.total_documents
+
+    def get_average_document_length(self) -> float:
+        return self.average_document_length
+
     def __add_document(self, doc_id: str, text: str) -> None:
-        tokens = self.tokenizer.tokenize(text)
-        for token in tokens:
+        # The boolean/keyword index only needs unique normalized terms.
+        for token in self.tokenizer.tokenize(text):
             self.index.setdefault(token, []).append(doc_id)
+
+        # Ranked retrieval also needs repeated terms so tf(t, d) is correct.
+        frequency_tokens = self.tokenizer.tokenize_with_frequency(text)
+        self.document_lengths[doc_id] = len(frequency_tokens)
+
+        unique_terms: set[str] = set()
+        for token in frequency_tokens:
+            postings = self.term_frequencies.setdefault(token, {})
+            postings[doc_id] = postings.get(doc_id, 0) + 1
+            unique_terms.add(token)
+
+        for token in unique_terms:
+            self.document_frequencies[token] = self.document_frequencies.get(token, 0) + 1
 
     def build(
         self,
@@ -62,6 +101,11 @@ class Indexer:
 
         self.index = {}
         self.doc_map = {}
+        self.term_frequencies = {}
+        self.document_frequencies = {}
+        self.document_lengths = {}
+        self.total_documents = 0
+        self.average_document_length = 0.0
 
         for doc in documents:
             if not isinstance(doc, dict):
@@ -73,12 +117,29 @@ class Indexer:
             self.doc_map[doc_id] = doc  # type: ignore[assignment]
             self.__add_document(doc_id, " ".join(text_parts))
 
+        self.total_documents = len(self.doc_map)
+        total_length = sum(self.document_lengths.values())
+        if self.total_documents > 0:
+            self.average_document_length = total_length / self.total_documents
+
     def save(self, filepath: str = "") -> None:
         path = filepath or self.default_file_path
         os_path = Path(path)
         os_path.parent.mkdir(parents=True, exist_ok=True)
         with os_path.open("wb") as file:
-            pickle.dump({"index": self.index, "doc_map": self.doc_map}, file)
+            pickle.dump(
+                {
+                    "version": 2,
+                    "index": self.index,
+                    "doc_map": self.doc_map,
+                    "term_frequencies": self.term_frequencies,
+                    "document_frequencies": self.document_frequencies,
+                    "document_lengths": self.document_lengths,
+                    "total_documents": self.total_documents,
+                    "average_document_length": self.average_document_length,
+                },
+                file,
+            )
 
     def load(self, filepath: str = "", force: bool = False) -> None:
         if self.doc_map and self.index and not force:
@@ -100,6 +161,16 @@ class Indexer:
         except KeyError as exc:
             raise ValueError(f"Invalid index file: missing key {exc}") from exc
 
+        if self._has_ranking_stats(data):
+            self.term_frequencies = data["term_frequencies"]
+            self.document_frequencies = data["document_frequencies"]
+            self.document_lengths = data["document_lengths"]
+            self.total_documents = data["total_documents"]
+            self.average_document_length = data["average_document_length"]
+        else:
+            # Backward-compatible fallback for older cache files.
+            self._rebuild_ranking_stats_from_doc_map()
+
     def load_or_build(
         self,
         docPath: str,
@@ -112,6 +183,39 @@ class Indexer:
         except (FileNotFoundError, ValueError):
             self.build(docPath, dataKey=dataKey, docIdKey=docIdKey, excludeDocKeys=excludeDocKeys)
             self.save()
+
+    def _has_ranking_stats(self, data: dict[str, Any]) -> bool:
+        required_keys = {
+            "term_frequencies",
+            "document_frequencies",
+            "document_lengths",
+            "total_documents",
+            "average_document_length",
+        }
+        return required_keys.issubset(data)
+
+    def _rebuild_ranking_stats_from_doc_map(self) -> None:
+        self.term_frequencies = {}
+        self.document_frequencies = {}
+        self.document_lengths = {}
+
+        for doc_id, document in self.doc_map.items():
+            text = " ".join(str(value) for key, value in document.items() if key != "id")
+            frequency_tokens = self.tokenizer.tokenize_with_frequency(text)
+            self.document_lengths[doc_id] = len(frequency_tokens)
+
+            unique_terms: set[str] = set()
+            for token in frequency_tokens:
+                postings = self.term_frequencies.setdefault(token, {})
+                postings[doc_id] = postings.get(doc_id, 0) + 1
+                unique_terms.add(token)
+
+            for token in unique_terms:
+                self.document_frequencies[token] = self.document_frequencies.get(token, 0) + 1
+
+        self.total_documents = len(self.doc_map)
+        total_length = sum(self.document_lengths.values())
+        self.average_document_length = (total_length / self.total_documents) if self.total_documents else 0.0
 
     def get_documents(self, terms: str | list[str], operation: str = "OR") -> list[dict[str, str]]:
         raw_terms = [terms] if isinstance(terms, str) else terms
