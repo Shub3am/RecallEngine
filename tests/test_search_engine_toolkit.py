@@ -16,7 +16,7 @@ def sample_dataset_path(tmp_path: str) -> str:
             {"id": "4", "title": "Comedy Night", "overview": "funny show"},
         ]
     }
-    dataset_file = tmp_path / "dataset.json"
+    dataset_file = tmp_path / "movies.json"
         
     with open(dataset_file, "w+", encoding="utf-8") as f:
         json.dump(data, f)
@@ -79,4 +79,22 @@ def test_auto_mode_detects_boolean(engine: SearchEngine):
 
 def test_invalid_mode_raises_value_error(engine: SearchEngine):
     with pytest.raises(ValueError, match="mode must be one of"):
-        engine.search("apple", mode="bm25")
+        engine.search("apple", mode="neural")
+
+
+def test_tfidf_search_returns_ranked_results(engine: SearchEngine):
+    results = engine.search("apple banana", mode="tfidf", top_k=2)
+
+    assert len(results) == 2
+    assert _ids(results) == ["3", "1"]
+    assert results[0]["score"] >= results[1]["score"]
+    assert results[0]["rank"] == 1
+
+
+def test_bm25_search_returns_ranked_results(engine: SearchEngine):
+    results = engine.search("banana", mode="bm25", top_k=2)
+
+    assert len(results) == 2
+    assert _ids(results) == ["2", "3"]
+    assert results[0]["score"] >= results[1]["score"]
+    assert results[1]["rank"] == 2

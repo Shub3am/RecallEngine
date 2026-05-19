@@ -3,6 +3,7 @@ from recall_engine.search_engine.evaluator import Evaluator
 from recall_engine.search_engine.indexer import Indexer
 from recall_engine.search_engine.lexer import Lexer
 from recall_engine.search_engine.parser import Parser
+from recall_engine.search_engine.ranked_retrieval import RankedRetrieval
 from recall_engine.search_engine.tokenizer import Tokenizer
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "Lexer",
     "Parser",
     "Evaluator",
+    "RankedRetrieval",
 ]
