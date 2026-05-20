@@ -49,6 +49,7 @@ class SearchEngine:
 
     def search(self, query: str, mode: str = "auto", top_k: int | None = None) -> list[dict[str, str]]:
         selected_mode = self._resolve_mode(query, mode)
+        self._validate_top_k(top_k)
         if selected_mode == "boolean":
             return self._search_boolean(query)
         if selected_mode in {"bm25", "tfidf"}:
@@ -77,12 +78,22 @@ class SearchEngine:
         return [doc_map[doc_id] for doc_id in sorted(doc_ids) if doc_id in doc_map]
 
     def _search_ranked(self, query: str, method: str, top_k: int | None = None) -> list[dict[str, str]]:
+        query_terms = self.tokenizer.tokenize_with_frequency(query)
         ranked_retrieval = RankedRetrieval(
-            self.indexer.get_index(),
             self.indexer.get_doc_map(),
-            tokenizer=self.tokenizer,
+            self.indexer.get_term_frequencies(),
+            self.indexer.get_document_frequencies(),
+            self.indexer.get_document_lengths(),
+            self.indexer.get_total_documents(),
+            self.indexer.get_average_document_length(),
         )
-        return ranked_retrieval.rank(query, method=method, top_k=top_k)
+        return ranked_retrieval.rank(query_terms, method=method, top_k=top_k)
+
+    def _validate_top_k(self, top_k: int | None) -> None:
+        if top_k is None:
+            return
+        if top_k <= 0:
+            raise ValueError("top_k must be a positive integer")
 
 
 def build_engine(doc_path: str, data_key: str = "movies") -> SearchEngine:

@@ -52,6 +52,19 @@ class Tokenizer():
         # After Stemming (e.g., "jumps" → "jump"): ["quick", "brown", "fox", "jump", "lazi", "dog"]
         return base
 
+    def tokenize_with_frequency(self, content: str) -> list[str]:
+        """Normalize text while preserving repeated terms.
+
+        Boolean matching only needs term presence, so `tokenize()` removes
+        duplicates. Ranked retrieval needs real term frequency, so this method
+        keeps duplicates after the same normalization steps.
+        """
+        normalized = content.lower()
+        normalized = self._clean_punctuation(normalized)
+        raw_tokens = normalized.split()
+        filtered_tokens = self._remove_stop_words(raw_tokens)
+        return [cast(str, self.stemmer.stem(token, to_lowercase=True)) for token in filtered_tokens]
+
            
     def _tokens_stemmer(self, tokens: list[str]) -> list[str]:
         """Reduce tokens to their root forms using Porter Stemming algorithm.
