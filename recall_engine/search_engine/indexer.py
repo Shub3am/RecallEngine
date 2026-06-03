@@ -29,11 +29,28 @@ class Indexer:
         self.total_documents = total_documents
         self.average_document_length = average_document_length
         self.default_file_path = file_path or str(self._default_cache_path())
+        self.source_fingerprint: dict[str, Any] | None = None
         self.tokenizer = tokenizer if tokenizer is not None else Tokenizer()
 
     @staticmethod
     def _default_cache_path() -> Path:
         return Path(__file__).resolve().parents[1] / "cache" / "cache.pkl"
+
+    @staticmethod
+    def _source_fingerprint(
+        docPath: str, dataKey: str, docIdKey: str, excludeDocKeys: list[str] | None
+    ) -> dict[str, Any]:
+        # A cache is only valid for the exact dataset file and indexing options
+        # that produced it, so a changed file or a different dataset rebuilds.
+        dataset_stat = Path(docPath).stat()
+        return {
+            "path": str(Path(docPath).resolve()),
+            "size": dataset_stat.st_size,
+            "mtime_ns": dataset_stat.st_mtime_ns,
+            "data_key": dataKey,
+            "doc_id_key": docIdKey,
+            "exclude_doc_keys": sorted(excludeDocKeys if excludeDocKeys is not None else ["id"]),
+        }
 
     @staticmethod
     def _dataset_loader_json(file_name_with_dir: str) -> dict[str, dict[str|int, str|int]] | list[str|int]:
@@ -121,6 +138,7 @@ class Indexer:
         total_length = sum(self.document_lengths.values())
         if self.total_documents > 0:
             self.average_document_length = total_length / self.total_documents
+        self.source_fingerprint = self._source_fingerprint(docPath, dataKey, docIdKey, excludeDocKeys)
 
     def save(self, filepath: str = "") -> None:
         path = filepath or self.default_file_path
@@ -129,7 +147,8 @@ class Indexer:
         with os_path.open("wb") as file:
             pickle.dump(
                 {
-                    "version": 2,
+                    "version": 3,
+                    "source": self.source_fingerprint,
                     "index": self.index,
                     "doc_map": self.doc_map,
                     "term_frequencies": self.term_frequencies,
@@ -161,6 +180,7 @@ class Indexer:
         except KeyError as exc:
             raise ValueError(f"Invalid index file: missing key {exc}") from exc
 
+        self.source_fingerprint = data.get("source")
         if self._has_ranking_stats(data):
             self.term_frequencies = data["term_frequencies"]
             self.document_frequencies = data["document_frequencies"]
@@ -180,9 +200,12 @@ class Indexer:
     ) -> None:
         try:
             self.load()
+            if self.source_fingerprint == self._source_fingerprint(docPath, dataKey, docIdKey, excludeDocKeys):
+                return
         except (FileNotFoundError, ValueError):
-            self.build(docPath, dataKey=dataKey, docIdKey=docIdKey, excludeDocKeys=excludeDocKeys)
-            self.save()
+            pass
+        self.build(docPath, dataKey=dataKey, docIdKey=docIdKey, excludeDocKeys=excludeDocKeys)
+        self.save()
 
     def _has_ranking_stats(self, data: dict[str, Any]) -> bool:
         required_keys = {
