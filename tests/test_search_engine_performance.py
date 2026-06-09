@@ -168,13 +168,13 @@ def test_ranked_retrieval_on_msmarco_sample(tmp_path):
         for r in bm25_results:
             score = r.get("score", 0)
             snippet = r.get("text", "")[:120].replace("\n", " ")
-            print(f"    [{r['rank']}] score={score:.4f} | {snippet}")
+            # print(f"    [{r['rank']}] score={score:.4f} | {snippet}")
 
         print(f"  TF-IDF ({tfidf_ms:.2f}ms) — {len(tfidf_results)} results")
         for r in tfidf_results:
             score = r.get("score", 0)
             snippet = r.get("text", "")[:120].replace("\n", " ")
-            print(f"    [{r['rank']}] score={score:.4f} | {snippet}")
+            # print(f"    [{r['rank']}] score={score:.4f} | {snippet}")
 
         assert len(bm25_results) > 0
         assert len(tfidf_results) > 0
