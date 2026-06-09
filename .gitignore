@@ -48,3 +48,6 @@ htmlcov/
 
 # Logs
 *.log
+
+# Built index cache
+recall_engine/cache/
