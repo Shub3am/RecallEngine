@@ -151,3 +151,32 @@ def test_boolean_query_with_dangling_operator_raises_value_error(engine: SearchE
 def test_boolean_query_with_trailing_tokens_raises_value_error(engine: SearchEngine):
     with pytest.raises(ValueError, match="Unexpected token '\\)' in query"):
         engine.search("apple )", mode="boolean")
+
+
+def test_load_or_build_rebuilds_when_dataset_changes(sample_dataset_path: str, tmp_path):
+    other_dataset_path = tmp_path / "other.json"
+    with open(other_dataset_path, "w", encoding="utf-8") as file:
+        json.dump({"docs": [{"id": "9", "title": "Quantum Widget"}]}, file)
+    shared_cache_path = str(tmp_path / "shared_cache.pkl")
+
+    first_engine = SearchEngine(indexer=Indexer(file_path=shared_cache_path))
+    first_engine.load_or_build_index(doc_path=sample_dataset_path, data_key="docs")
+    second_engine = SearchEngine(indexer=Indexer(file_path=shared_cache_path))
+    second_engine.load_or_build_index(doc_path=str(other_dataset_path), data_key="docs")
+
+    assert _ids(second_engine.search("quantum", mode="keyword")) == ["9"]
+    assert second_engine.search("apple", mode="keyword") == []
+
+
+def test_load_or_build_reuses_cache_for_same_dataset(sample_dataset_path: str, tmp_path):
+    shared_cache_path = str(tmp_path / "shared_cache.pkl")
+    SearchEngine(indexer=Indexer(file_path=shared_cache_path)).load_or_build_index(
+        doc_path=sample_dataset_path, data_key="docs"
+    )
+    cache_written_at = (tmp_path / "shared_cache.pkl").stat().st_mtime_ns
+
+    cached_engine = SearchEngine(indexer=Indexer(file_path=shared_cache_path))
+    cached_engine.load_or_build_index(doc_path=sample_dataset_path, data_key="docs")
+
+    assert (tmp_path / "shared_cache.pkl").stat().st_mtime_ns == cache_written_at
+    assert _ids(cached_engine.search("apple", mode="keyword")) == ["1", "3"]
