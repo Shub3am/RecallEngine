@@ -180,3 +180,29 @@ def test_load_or_build_reuses_cache_for_same_dataset(sample_dataset_path: str, t
 
     assert (tmp_path / "shared_cache.pkl").stat().st_mtime_ns == cache_written_at
     assert _ids(cached_engine.search("apple", mode="keyword")) == ["1", "3"]
+
+
+def test_top_level_import_exposes_search_engine():
+    import recall_engine
+
+    assert recall_engine.SearchEngine is SearchEngine
+
+
+def test_from_json_builds_and_caches_in_one_call(sample_dataset_path: str, tmp_path):
+    cache_path = tmp_path / "one_call_cache.pkl"
+
+    one_call_engine = SearchEngine.from_json(sample_dataset_path, data_key="docs", cache_path=str(cache_path))
+
+    assert cache_path.exists()
+    assert _ids(one_call_engine.search("apple AND banana")) == ["3"]
+
+
+def test_from_documents_indexes_in_memory_list():
+    documents = [
+        {"id": 1, "title": "Space Pirates", "overview": "a heist among the stars"},
+        {"id": 2, "title": "Garden Party", "overview": "tea and roses"},
+    ]
+
+    in_memory_engine = SearchEngine.from_documents(documents)
+
+    assert _ids(in_memory_engine.search("pirates", mode="bm25")) == ["1"]

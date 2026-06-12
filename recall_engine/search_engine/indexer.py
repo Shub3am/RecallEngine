@@ -103,7 +103,6 @@ class Indexer:
         docIdKey: str = "id",
         excludeDocKeys: list[str] | None = None,
     ) -> None:
-        exclude_keys = set(excludeDocKeys if excludeDocKeys is not None else ["id"])
         data = self._dataset_loader_json(docPath)
 
         if dataKey:
@@ -113,9 +112,20 @@ class Indexer:
         else:
             documents = data
 
+        self.build_from_documents(documents, docIdKey=docIdKey, excludeDocKeys=excludeDocKeys)
+        self.source_fingerprint = self._source_fingerprint(docPath, dataKey, docIdKey, excludeDocKeys)
+
+    def build_from_documents(
+        self,
+        documents: list[dict[str, Any]],
+        docIdKey: str = "id",
+        excludeDocKeys: list[str] | None = None,
+    ) -> None:
         if not isinstance(documents, list):
             raise ValueError("Dataset must be a list of documents")
+        exclude_keys = set(excludeDocKeys if excludeDocKeys is not None else ["id"])
 
+        self.source_fingerprint = None
         self.index = {}
         self.doc_map = {}
         self.term_frequencies = {}
@@ -138,7 +148,6 @@ class Indexer:
         total_length = sum(self.document_lengths.values())
         if self.total_documents > 0:
             self.average_document_length = total_length / self.total_documents
-        self.source_fingerprint = self._source_fingerprint(docPath, dataKey, docIdKey, excludeDocKeys)
 
     def save(self, filepath: str = "") -> None:
         path = filepath or self.default_file_path
