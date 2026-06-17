@@ -1,3 +1,5 @@
+from typing import Any
+
 from recall_engine.search_engine.evaluator import Evaluator
 from recall_engine.search_engine.indexer import Indexer
 from recall_engine.search_engine.lexer import Lexer
@@ -12,6 +14,35 @@ class SearchEngine:
     def __init__(self, indexer: Indexer | None = None, tokenizer: Tokenizer | None = None) -> None:
         self.indexer = indexer if indexer is not None else Indexer(tokenizer=tokenizer)
         self.tokenizer = tokenizer if tokenizer is not None else self.indexer.tokenizer
+
+    @classmethod
+    def from_json(
+        cls,
+        doc_path: str,
+        data_key: str = "",
+        doc_id_key: str = "id",
+        exclude_doc_keys: list[str] | None = None,
+        cache_path: str | None = None,
+    ) -> "SearchEngine":
+        engine = cls(indexer=Indexer(file_path=cache_path))
+        engine.load_or_build_index(
+            doc_path=doc_path,
+            data_key=data_key,
+            doc_id_key=doc_id_key,
+            exclude_doc_keys=exclude_doc_keys,
+        )
+        return engine
+
+    @classmethod
+    def from_documents(
+        cls,
+        documents: list[dict[str, Any]],
+        doc_id_key: str = "id",
+        exclude_doc_keys: list[str] | None = None,
+    ) -> "SearchEngine":
+        engine = cls()
+        engine.indexer.build_from_documents(documents, docIdKey=doc_id_key, excludeDocKeys=exclude_doc_keys)
+        return engine
 
     def build_index(
         self,
