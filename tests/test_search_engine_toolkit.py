@@ -206,3 +206,9 @@ def test_from_documents_indexes_in_memory_list():
     in_memory_engine = SearchEngine.from_documents(documents)
 
     assert _ids(in_memory_engine.search("pirates", mode="bm25")) == ["1"]
+
+
+def test_default_cache_path_is_outside_the_package():
+    from pathlib import Path
+
+    assert Indexer().default_file_path == str(Path.home() / ".cache" / "recall_engine" / "index.pkl")
