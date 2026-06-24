@@ -1,7 +1,7 @@
 [project]
 name = "recall-engine"
 version = "0.1.0"
-description = "Keyword, boolean and BM25/TF-IDF search over JSON documents from a single import."
+description = "Keyword, boolean, BM25/TF-IDF, semantic and hybrid search over JSON documents from a single import."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -9,7 +9,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+semantic = [
+    "fastembed>=0.8.0,<1",
+    "numpy>=2",
+]
 dev = [
+    "recall-engine[semantic]",
     "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "datasets>=4.7.0,<5.0.0",

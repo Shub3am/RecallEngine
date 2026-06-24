@@ -30,6 +30,7 @@ class Indexer:
         self.average_document_length = average_document_length
         self.default_file_path = file_path or str(self._default_cache_path())
         self.source_fingerprint: dict[str, Any] | None = None
+        self.exclude_doc_keys: list[str] = ["id"]
         self.tokenizer = tokenizer if tokenizer is not None else Tokenizer()
 
     @staticmethod
@@ -79,6 +80,10 @@ class Indexer:
     def get_average_document_length(self) -> float:
         return self.average_document_length
 
+    def get_document_text(self, doc_id: str) -> str:
+        document = self.doc_map[doc_id]
+        return " ".join(str(value) for key, value in document.items() if key not in self.exclude_doc_keys)
+
     def __add_document(self, doc_id: str, text: str) -> None:
         # The boolean/keyword index only needs unique normalized terms.
         for token in self.tokenizer.tokenize(text):
@@ -124,7 +129,7 @@ class Indexer:
     ) -> None:
         if not isinstance(documents, list):
             raise ValueError("Dataset must be a list of documents")
-        exclude_keys = set(excludeDocKeys if excludeDocKeys is not None else ["id"])
+        self.exclude_doc_keys = list(excludeDocKeys if excludeDocKeys is not None else ["id"])
 
         self.source_fingerprint = None
         self.index = {}
@@ -141,9 +146,8 @@ class Indexer:
             if docIdKey not in doc:
                 continue
             doc_id = str(doc[docIdKey])
-            text_parts = [str(value) for key, value in doc.items() if key not in exclude_keys]
             self.doc_map[doc_id] = doc  # type: ignore[assignment]
-            self.__add_document(doc_id, " ".join(text_parts))
+            self.__add_document(doc_id, self.get_document_text(doc_id))
 
         self.total_documents = len(self.doc_map)
         total_length = sum(self.document_lengths.values())
@@ -159,6 +163,7 @@ class Indexer:
                 {
                     "version": 3,
                     "source": self.source_fingerprint,
+                    "exclude_doc_keys": self.exclude_doc_keys,
                     "index": self.index,
                     "doc_map": self.doc_map,
                     "term_frequencies": self.term_frequencies,
@@ -191,6 +196,7 @@ class Indexer:
             raise ValueError(f"Invalid index file: missing key {exc}") from exc
 
         self.source_fingerprint = data.get("source")
+        self.exclude_doc_keys = data.get("exclude_doc_keys", ["id"])
         if self._has_ranking_stats(data):
             self.term_frequencies = data["term_frequencies"]
             self.document_frequencies = data["document_frequencies"]
