@@ -34,7 +34,8 @@ class Indexer:
 
     @staticmethod
     def _default_cache_path() -> Path:
-        return Path(__file__).resolve().parents[1] / "cache" / "cache.pkl"
+        # Kept outside the package so pip-installed copies never write into site-packages.
+        return Path.home() / ".cache" / "recall_engine" / "index.pkl"
 
     @staticmethod
     def _source_fingerprint(
