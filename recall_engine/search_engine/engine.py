@@ -1,4 +1,5 @@
 import json
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,7 @@ class SearchEngine:
         self.tokenizer = tokenizer if tokenizer is not None else self.indexer.tokenizer
         self.embedding_model = embedding_model
         self._semantic_retrieval: Any | None = None
+        self._semantic_retrieval_lock = threading.Lock()
 
     @classmethod
     def from_json(
@@ -173,7 +175,14 @@ class SearchEngine:
     def _get_semantic_retrieval(self) -> Any:
         if self._semantic_retrieval is not None:
             return self._semantic_retrieval
+        # The HTTP API runs searches on a threadpool; without the lock every concurrent
+        # first semantic query would embed the whole corpus.
+        with self._semantic_retrieval_lock:
+            if self._semantic_retrieval is None:
+                self._semantic_retrieval = self._build_semantic_retrieval()
+        return self._semantic_retrieval
 
+    def _build_semantic_retrieval(self) -> Any:
         # Imported here so keyword-only installs never need numpy or fastembed.
         from recall_engine.search_engine.semantic_retrieval import (
             SemanticRetrieval,
@@ -198,8 +207,6 @@ class SearchEngine:
             semantic_retrieval = SemanticRetrieval.from_documents(self.embedding_model, document_texts)
             if source_fingerprint is not None:
                 semantic_retrieval.save(embeddings_cache_path, cache_key)
-
-        self._semantic_retrieval = semantic_retrieval
         return semantic_retrieval
 
     def _validate_top_k(self, top_k: int | None) -> None:
