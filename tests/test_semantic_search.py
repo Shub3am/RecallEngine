@@ -1,4 +1,6 @@
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pytest
@@ -77,6 +79,23 @@ def test_hybrid_returns_semantic_matches_with_no_keyword_hits(semantic_engine: S
     results = semantic_engine.search("recipe", mode="hybrid", top_k=1)
 
     assert _ids(results) == ["3"]
+
+
+class SlowConceptEmbeddingModel(ConceptEmbeddingModel):
+    def passage_embed(self, texts):
+        time.sleep(0.2)
+        yield from super().passage_embed(texts)
+
+
+def test_concurrent_first_semantic_searches_embed_documents_once():
+    embedding_model = SlowConceptEmbeddingModel()
+    engine = SearchEngine.from_documents(_DOCUMENTS, embedding_model=embedding_model)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        result_ids = list(pool.map(lambda _: _ids(engine.search("sailor", mode="semantic", top_k=1)), range(8)))
+
+    assert result_ids == [["2"]] * 8
+    assert embedding_model.embedded_passage_count == len(_DOCUMENTS)
 
 
 def test_semantic_embeddings_are_cached_next_to_the_index(tmp_path):
