@@ -4,6 +4,12 @@ version = "0.1.0"
 description = "Keyword, boolean, BM25/TF-IDF, semantic and hybrid search over JSON documents from a single import."
 readme = "README.md"
 requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
 dependencies = [
     "nltk>=3.9.1,<4",
 ]
