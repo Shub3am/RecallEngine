@@ -164,13 +164,13 @@ def test_ranked_retrieval_on_msmarco_sample(tmp_path):
         tfidf_ms = (time.perf_counter() - tfidf_start) * 1000
 
         print(f"\nQuery: '{query}'")
-        print(f"  BM25 ({bm25_ms:.2f}ms) — {len(bm25_results)} results")
+        print(f"  BM25 ({bm25_ms:.2f}ms): {len(bm25_results)} results")
         for r in bm25_results:
             score = r.get("score", 0)
             snippet = r.get("text", "")[:120].replace("\n", " ")
             # print(f"    [{r['rank']}] score={score:.4f} | {snippet}")
 
-        print(f"  TF-IDF ({tfidf_ms:.2f}ms) — {len(tfidf_results)} results")
+        print(f"  TF-IDF ({tfidf_ms:.2f}ms): {len(tfidf_results)} results")
         for r in tfidf_results:
             score = r.get("score", 0)
             snippet = r.get("text", "")[:120].replace("\n", " ")
