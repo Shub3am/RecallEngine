@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 import argparse
+import os
 
 from recall_engine.search_engine import SearchEngine
 from recall_engine.search_engine.engine import RANKED_MODES, SEARCH_MODES
 from recall_engine.search_engine.misc import DATA_PATH
+
+# Read from the environment, not a flag, so the key never shows up in `ps` output.
+API_KEY_ENV_VAR = "RECALL_ENGINE_API_KEY"
 
 #example commands:
 #  recall_engine search "apple AND banana" --mode boolean --dataset datasets/movies.json --data-key movies
@@ -39,7 +43,7 @@ def _serve(args: argparse.Namespace, engine: SearchEngine) -> None:
     # uvicorn ships with the api extra, which the create_app import above already requires.
     import uvicorn
 
-    uvicorn.run(create_app(engine), host=args.host, port=args.port)
+    uvicorn.run(create_app(engine, api_key=os.environ.get(API_KEY_ENV_VAR)), host=args.host, port=args.port)
 
 
 def cli() -> None:
@@ -81,7 +85,11 @@ def cli() -> None:
         help="Number of results to return for ranked modes (default: 10)",
     )
 
-    serve_parser = subparsers.add_parser("serve", parents=[dataset_parser], help="Serve a dataset over HTTP")
+    serve_parser = subparsers.add_parser(
+        "serve",
+        parents=[dataset_parser],
+        help=f"Serve a dataset over HTTP (set {API_KEY_ENV_VAR} to require an X-API-Key header)",
+    )
     serve_parser.add_argument("--host", type=str, default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
     serve_parser.add_argument("--port", type=int, default=8000, help="Port (default: 8000)")
 
