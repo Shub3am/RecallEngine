@@ -4,6 +4,22 @@ import math
 from typing import Any
 
 
+def order_by_score(scores: dict[str, float]) -> list[tuple[str, float]]:
+    return sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+
+
+def as_ranked_documents(
+    doc_map: dict[str, dict[str, str]], scored_doc_ids: list[tuple[str, float]]
+) -> list[dict[str, Any]]:
+    ranked_documents: list[dict[str, Any]] = []
+    for rank_position, (doc_id, score) in enumerate(scored_doc_ids, start=1):
+        document: dict[str, Any] = dict(doc_map[doc_id])
+        document["score"] = score
+        document["rank"] = rank_position
+        ranked_documents.append(document)
+    return ranked_documents
+
+
 class RankedRetrieval:
     """Readable ranked retrieval helper for BM25 and TF-IDF."""
 
@@ -95,15 +111,4 @@ class RankedRetrieval:
         else:
             raise ValueError("method must be one of: bm25, tfidf")
 
-        ranked_doc_ids = sorted(scores, key=lambda doc_id: (-scores[doc_id], doc_id))
-        if top_k is not None:
-            ranked_doc_ids = ranked_doc_ids[:top_k]
-
-        ranked_results: list[dict[str, Any]] = []
-        for rank_position, doc_id in enumerate(ranked_doc_ids, start=1):
-            document = dict(self.doc_map[doc_id])
-            document["score"] = scores[doc_id]
-            document["rank"] = rank_position
-            ranked_results.append(document)
-
-        return ranked_results
+        return as_ranked_documents(self.doc_map, order_by_score(scores)[:top_k])
