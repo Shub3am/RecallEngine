@@ -1,145 +1,98 @@
 # RecallEngine
 
-RecallEngine is a lightweight search toolkit for JSON datasets.
-
-It currently provides:
-- Text normalization (lowercase, punctuation removal, tokenization, stop-word filtering, stemming)
-- Inverted-index based keyword retrieval
-- Boolean query evaluation in the library API
-- CLI entrypoint for dataset search
-- Test coverage for toolkit behavior and baseline performance
-
-## Vision
-
-RecallEngine is intended to grow from a local keyword search toolkit into a modular retrieval platform for production RAG and search workloads.
-
-The long-term vision is to provide a single, composable engine where developers can ingest data, index it with multiple strategies, retrieve relevant context with robust ranking, and expose the system through clean APIs and operational tooling.
-
-## Status
-
-Version: 0.1.0 (active development)
-
-Core indexing and boolean query flow are implemented. Ranking algorithms such as BM25 and TF-IDF are planned next.
-
-## Requirements
-
-- Python >= 3.12
-- Poetry
+RecallEngine is a search library for JSON documents. You point it at a file, and one import gives you keyword, boolean, BM25, TF-IDF, semantic and hybrid search. You can also serve it over HTTP.
 
 ## Install
 
 ```bash
-git clone https://github.com/Shub3am/RecallEngine
-cd RecallEngine
-poetry install --with dev
+# Everything: keyword, ranked, semantic, hybrid and the HTTP API
+pip install "recall-engine[all] @ git+https://github.com/Shub3am/RecallEngine"
+
+# Keyword, boolean, BM25 and TF-IDF only (no numpy, no model download)
+pip install "recall-engine @ git+https://github.com/Shub3am/RecallEngine"
 ```
 
-## Quick Start
+| Extra      | Adds                                      |
+|------------|-------------------------------------------|
+| `semantic` | `semantic` and `hybrid` modes (fastembed) |
+| `api`      | `recall_engine serve` and `create_app`    |
+| `all`      | both of the above                         |
 
-Run the CLI against the bundled movie dataset:
+Requires Python 3.12 or newer.
 
-```bash
-poetry run recall_engine search "action hero"
-```
-
-Equivalent module invocation:
-
-```bash
-poetry run python -m recall_engine search "action hero"
-```
-
-## Library Usage
+## Quick start
 
 ```python
-from recall_engine.search_engine import SearchEngine
+from recall_engine import SearchEngine
 
-engine = SearchEngine()
-engine.load_or_build_index(
-    doc_path="datasets/movies.json",
-    data_key="movies",
-    doc_id_key="id",
-    exclude_doc_keys=["id"],
-)
+engine = SearchEngine.from_json("docs.json", data_key="docs")
 
-# Auto mode picks keyword vs boolean behavior based on operators.
-results = engine.search("apple AND NOT banana", mode="auto")
-print(results[:3])
+engine.search("dark knight")                               # keyword
+engine.search("crime AND NOT comedy")                      # boolean, picked automatically
+engine.search("bank regulation", mode="bm25", top_k=5)     # ranked
+engine.search("films about space travel", mode="semantic", top_k=5)
+engine.search("space travel", mode="hybrid", top_k=5)      # BM25 + semantic, fused
 ```
 
-## Project Structure
+Already have the documents in memory:
 
-```text
-RecallEngine/
-├── datasets/
-│   ├── load_dataset.py
-│   ├── movies.json
-│   └── msmarco_passages.json
-├── recall_engine/
-│   ├── __main__.py
-│   ├── cache/
-│   ├── cli/
-│   │   ├── __init__.py
-│   │   └── main.py
-│   └── search_engine/
-│       ├── __init__.py
-│       ├── engine.py
-│       ├── evaluator.py
-│       ├── indexer.py
-│       ├── lexer.py
-│       ├── misc.py
-│       ├── parser.py
-│       ├── tokenizer.py
-│       ├── utils.py
-│       └── stop_words.txt
-├── tests/
-│   ├── test_search_engine_performance.py
-│   └── test_search_engine_toolkit.py
-├── DEVELOPER_GUIDE.md
-├── pyproject.toml
-└── README.md
+```python
+engine = SearchEngine.from_documents([
+    {"id": "1", "title": "Red Apple", "overview": "fresh fruit"},
+    {"id": "2", "title": "Green Banana", "overview": "tropical fruit"},
+])
 ```
 
-## Testing
+`from_json` caches the built index in `~/.cache/recall_engine/`. It rebuilds automatically when the file or the indexing options change.
+
+## CLI
 
 ```bash
-# All tests
-poetry run pytest -v
-
-# Toolkit tests
-poetry run pytest tests/test_search_engine_toolkit.py -v
-
-# Performance baseline test
-poetry run pytest tests/test_search_engine_performance.py -v -s
-
-# Coverage
-poetry run pytest --cov=recall_engine --cov-report=term-missing
+recall_engine search "space travel" --dataset docs.json --data-key docs --mode hybrid --top-k 5
+recall_engine serve --dataset docs.json --data-key docs --port 8000
 ```
 
-## Roadmap
+## HTTP API
 
-- Add BM25 scoring
-- Add TF-IDF scoring
-- Expose search mode controls in CLI
-- Add more datasets and ingestion connectors
-- Add CI checks for performance regression thresholds
+```bash
+curl localhost:8000/health
+# {"status":"ok","documents":2}
 
-## Future of the Library
+curl -X POST localhost:8000/search -H 'content-type: application/json' \
+  -d '{"query": "banana", "mode": "bm25", "top_k": 1}'
+# {"query":"banana","mode":"bm25","count":1,"results":[{"id":"2", ..., "score":0.69,"rank":1}]}
+```
 
-RecallEngine is expected to evolve into a layered system with:
-- Pluggable retrieval modes: keyword, boolean, semantic, and hybrid
-- Better ranking: BM25, TF-IDF, and learning-to-rank ready interfaces
-- Ingestion connectors: files, APIs, and database sources
-- Persistence options: local cache first, then backend adapters
-- Service layer: API endpoints and deployment-ready interfaces
-- Observability hooks: latency metrics, quality evaluation, and traceable query flow
+Invalid modes and malformed boolean queries return 400. Interactive docs are served at `/docs`.
 
-The target outcome is a library that starts simple for local experimentation and scales to production retrieval stacks without forcing a rewrite.
+To require a key, set `RECALL_ENGINE_API_KEY` before `recall_engine serve`. `/search` then answers 401 unless the request sends a matching `X-API-Key` header. `/health` stays open for load balancer probes. The server binds to `127.0.0.1` by default; pass `--host 0.0.0.0` to expose it, and put TLS in front of it (a reverse proxy or your load balancer).
 
-## Contributing
+To mount it in your own app, pass it an engine:
 
-1. Create a feature branch.
-2. Add or update tests with your changes.
-3. Run `poetry run pytest`.
-4. Open a pull request.
+```python
+from recall_engine.api import create_app
 
-See `DEVELOPER_GUIDE.md` for development conventions.
+app = create_app(SearchEngine.from_json("docs.json", data_key="docs"), api_key="your-secret")
+```
+
+## Search modes
+
+| Mode       | What it does                                              | `top_k` |
+|------------|-----------------------------------------------------------|---------|
+| `auto`     | `boolean` if the query has AND, OR, NOT or parentheses, otherwise `keyword` | No |
+| `keyword`  | Documents containing any query term, sorted by id         | No      |
+| `boolean`  | AND, OR, NOT and parentheses, sorted by id                | No      |
+| `bm25`     | Ranked by BM25                                            | Yes     |
+| `tfidf`    | Ranked by TF-IDF                                          | Yes     |
+| `semantic` | Ranked by embedding similarity (`BAAI/bge-small-en-v1.5`) | Yes     |
+| `hybrid`   | BM25 and semantic rankings merged with Reciprocal Rank Fusion | Yes |
+
+Ranked results carry two extra fields: `score` and `rank`.
+
+The first semantic search downloads the embedding model (about 70 MB) and embeds every document. For file-backed engines the embeddings are cached next to the index.
+
+See [USAGE.md](USAGE.md) for the full guide and [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) to work on the code.
+
+## Status
+
+Version 1.0.0.
