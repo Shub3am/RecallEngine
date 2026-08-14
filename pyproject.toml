@@ -1,6 +1,6 @@
 [project]
 name = "recall-engine"
-version = "0.1.0"
+version = "1.0.0"
 description = "Keyword, boolean, BM25/TF-IDF, semantic and hybrid search over JSON documents from a single import."
 readme = "README.md"
 requires-python = ">=3.12"
