@@ -7,11 +7,12 @@ from recall_engine.search_engine.evaluator import Evaluator
 from recall_engine.search_engine.indexer import Indexer
 from recall_engine.search_engine.lexer import Lexer
 from recall_engine.search_engine.parser import Parser
-from recall_engine.search_engine.ranked_retrieval import RankedRetrieval
+from recall_engine.search_engine.ranked_retrieval import RankedRetrieval, as_ranked_documents, order_by_score
 from recall_engine.search_engine.tokenizer import Tokenizer
 
 SEARCH_MODES = ("auto", "keyword", "boolean", "bm25", "tfidf", "semantic", "hybrid")
-RANKED_MODES = {"bm25", "tfidf", "semantic", "hybrid"}
+LEXICAL_RANKED_MODES = {"bm25", "tfidf"}
+RANKED_MODES = LEXICAL_RANKED_MODES | {"semantic", "hybrid"}
 
 # Reciprocal Rank Fusion constant from Cormack et al. (2009); 60 damps the
 # influence of any single ranking's top positions.
@@ -107,10 +108,10 @@ class SearchEngine:
         self._validate_top_k(top_k)
         if selected_mode == "boolean":
             return self._search_boolean(query)
-        if selected_mode in {"bm25", "tfidf"}:
+        if selected_mode in LEXICAL_RANKED_MODES:
             return self._search_ranked(query, method=selected_mode, top_k=top_k)
         if selected_mode == "semantic":
-            return self._as_ranked_documents(self._get_semantic_retrieval().rank(query, top_k))
+            return as_ranked_documents(self.indexer.get_doc_map(), self._get_semantic_retrieval().rank(query, top_k))
         if selected_mode == "hybrid":
             return self._search_hybrid(query, top_k)
         return self._search_keyword(query)
@@ -152,7 +153,7 @@ class SearchEngine:
 
     def _search_hybrid(self, query: str, top_k: int | None) -> list[dict[str, Any]]:
         bm25_scores = self._ranked_retrieval().score_bm25(self.tokenizer.tokenize_with_frequency(query))
-        bm25_ranking = sorted(bm25_scores, key=lambda doc_id: (-bm25_scores[doc_id], doc_id))[:HYBRID_CANDIDATE_POOL]
+        bm25_ranking = [doc_id for doc_id, _ in order_by_score(bm25_scores)[:HYBRID_CANDIDATE_POOL]]
         semantic_ranking = [doc_id for doc_id, _ in self._get_semantic_retrieval().rank(query, HYBRID_CANDIDATE_POOL)]
 
         fused_scores: dict[str, float] = {}
@@ -160,17 +161,7 @@ class SearchEngine:
             for position, doc_id in enumerate(ranking, start=1):
                 fused_scores[doc_id] = fused_scores.get(doc_id, 0.0) + 1 / (RRF_K + position)
 
-        fused_ranking = sorted(fused_scores.items(), key=lambda item: (-item[1], item[0]))
-        return self._as_ranked_documents(fused_ranking[:top_k])
-
-    def _as_ranked_documents(self, scored_doc_ids: list[tuple[str, float]]) -> list[dict[str, Any]]:
-        ranked_documents = []
-        for rank_position, (doc_id, score) in enumerate(scored_doc_ids, start=1):
-            document = dict(self.indexer.get_doc_map()[doc_id])
-            document["score"] = score
-            document["rank"] = rank_position
-            ranked_documents.append(document)
-        return ranked_documents
+        return as_ranked_documents(self.indexer.get_doc_map(), order_by_score(fused_scores)[:top_k])
 
     def _get_semantic_retrieval(self) -> Any:
         if self._semantic_retrieval is not None:
@@ -217,7 +208,5 @@ class SearchEngine:
 
 
 def build_engine(doc_path: str, data_key: str = "movies") -> SearchEngine:
-    """Convenience function for one-call setup from a JSON dataset."""
-    engine = SearchEngine()
-    engine.load_or_build_index(doc_path=doc_path, data_key=data_key)
-    return engine
+    """Kept for existing callers; SearchEngine.from_json is the full-featured form."""
+    return SearchEngine.from_json(doc_path, data_key=data_key)
