@@ -23,8 +23,19 @@ api = [
     "fastapi>=0.141,<1",
     "uvicorn>=0.53",
 ]
+formats = [
+    "pypdf>=6.19,<7",
+    "python-docx>=1.2,<2",
+    "openpyxl>=3.1.5,<4",
+]
+database = [
+    "sqlalchemy>=2.1,<3",
+]
+rag = [
+    "anthropic>=1.9,<2",
+]
 all = [
-    "recall-engine[semantic,api]",
+    "recall-engine[semantic,api,formats,database,rag]",
 ]
 dev = [
     "recall-engine[all]",
