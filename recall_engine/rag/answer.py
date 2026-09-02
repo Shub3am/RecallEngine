@@ -3,6 +3,7 @@
 Must not search, index or load documents; the caller hands in the passages.
 """
 
+import functools
 from typing import Any
 
 DEFAULT_MODEL = "claude-opus-5-5"
@@ -25,11 +26,7 @@ def answer_question(
 ) -> dict[str, Any]:
     """Answer `question` from `(passage_id, passage_text)` pairs; citations point back to passage ids."""
     if client is None:
-        try:
-            import anthropic
-        except ImportError as error:
-            raise ImportError(MISSING_RAG_EXTRA) from error
-        client = anthropic.Anthropic()
+        client = _default_client()
 
     # Documents go before the question: Claude answers long-context prompts best when the question comes last.
     content: list[dict[str, Any]] = [
@@ -56,27 +53,31 @@ def answer_question(
         raise RuntimeError("Claude declined to answer this question.")
 
     answer_parts: list[str] = []
-    cited_passage_ids: list[str] = []
+    citation_number_by_passage_id: dict[str, int] = {}
     citations: list[dict[str, Any]] = []
     # The response can also hold thinking or fallback blocks; only text blocks carry the answer.
     for block in response.content:
         if block.type != "text":
             continue
-        markers = []
+        block_markers: dict[str, None] = {}
         for citation in block.citations or []:
             passage_id = passages[citation.document_index][0]
-            if passage_id not in cited_passage_ids:
-                cited_passage_ids.append(passage_id)
+            if passage_id not in citation_number_by_passage_id:
+                citation_number_by_passage_id[passage_id] = len(citations) + 1
                 citations.append(
-                    {
-                        "number": len(cited_passage_ids),
-                        "passage_id": passage_id,
-                        "cited_text": citation.cited_text,
-                    }
+                    {"number": len(citations) + 1, "passage_id": passage_id, "cited_text": citation.cited_text}
                 )
-            marker = f"[{cited_passage_ids.index(passage_id) + 1}]"
-            if marker not in markers:
-                markers.append(marker)
-        answer_parts.append(block.text + "".join(markers))
+            block_markers[f"[{citation_number_by_passage_id[passage_id]}]"] = None
+        answer_parts.append(block.text + "".join(block_markers))
 
     return {"question": question, "answer": "".join(answer_parts).strip(), "citations": citations}
+
+
+# One client per process so repeated questions reuse its HTTP connection pool.
+@functools.cache
+def _default_client() -> Any:
+    try:
+        import anthropic
+    except ImportError as error:
+        raise ImportError(MISSING_RAG_EXTRA) from error
+    return anthropic.Anthropic()
