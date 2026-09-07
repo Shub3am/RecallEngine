@@ -1,5 +1,6 @@
 import json
 import pickle
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,7 @@ class Indexer:
         self.default_file_path = file_path or str(self._default_cache_path())
         self.source_fingerprint: dict[str, Any] | None = None
         self.exclude_doc_keys: list[str] = ["id"]
+        self.doc_id_key = "id"
         self.tokenizer = tokenizer if tokenizer is not None else Tokenizer()
 
     @staticmethod
@@ -39,25 +41,36 @@ class Indexer:
         return Path.home() / ".cache" / "recall_engine" / "index.pkl"
 
     @staticmethod
-    def _source_fingerprint(
-        docPath: str, dataKey: str, docIdKey: str, excludeDocKeys: list[str] | None
+    def _index_fingerprint(
+        sourceFingerprint: dict[str, Any], docIdKey: str, excludeDocKeys: list[str] | None
     ) -> dict[str, Any]:
-        # A cache is only valid for the exact dataset file and indexing options
-        # that produced it, so a changed file or a different dataset rebuilds.
+        # A cache is only valid for the exact source and indexing options
+        # that produced it, so a changed source or different options rebuild.
+        return {
+            "source": sourceFingerprint,
+            "doc_id_key": docIdKey,
+            "exclude_doc_keys": sorted(excludeDocKeys if excludeDocKeys is not None else ["id"]),
+        }
+
+    @staticmethod
+    def _json_file_fingerprint(docPath: str, dataKey: str) -> dict[str, Any]:
         dataset_stat = Path(docPath).stat()
         return {
             "path": str(Path(docPath).resolve()),
             "size": dataset_stat.st_size,
             "mtime_ns": dataset_stat.st_mtime_ns,
             "data_key": dataKey,
-            "doc_id_key": docIdKey,
-            "exclude_doc_keys": sorted(excludeDocKeys if excludeDocKeys is not None else ["id"]),
         }
 
     @staticmethod
-    def _dataset_loader_json(file_name_with_dir: str) -> dict[str, dict[str|int, str|int]] | list[str|int]:
-        with open(file_name_with_dir, "r", encoding="utf-8") as file:
-            return json.load(file)
+    def _load_json_documents(docPath: str, dataKey: str) -> list[dict[str, Any]]:
+        with open(docPath, "r", encoding="utf-8") as file:
+            data = json.load(file)
+        if not dataKey:
+            return data
+        if not isinstance(data, dict) or dataKey not in data:
+            raise ValueError(f"dataKey '{dataKey}' not present in dataset")
+        return data[dataKey]
 
     def get_index(self) -> dict[str, list[str]]:
         return self.index
@@ -109,17 +122,11 @@ class Indexer:
         docIdKey: str = "id",
         excludeDocKeys: list[str] | None = None,
     ) -> None:
-        data = self._dataset_loader_json(docPath)
-
-        if dataKey:
-            if not isinstance(data, dict) or dataKey not in data:
-                raise ValueError(f"dataKey '{dataKey}' not present in dataset")
-            documents = data[dataKey]
-        else:
-            documents = data
-
+        documents = self._load_json_documents(docPath, dataKey)
         self.build_from_documents(documents, docIdKey=docIdKey, excludeDocKeys=excludeDocKeys)
-        self.source_fingerprint = self._source_fingerprint(docPath, dataKey, docIdKey, excludeDocKeys)
+        self.source_fingerprint = self._index_fingerprint(
+            self._json_file_fingerprint(docPath, dataKey), docIdKey, excludeDocKeys
+        )
 
     def build_from_documents(
         self,
@@ -130,6 +137,7 @@ class Indexer:
         if not isinstance(documents, list):
             raise ValueError("Dataset must be a list of documents")
         self.exclude_doc_keys = list(excludeDocKeys if excludeDocKeys is not None else ["id"])
+        self.doc_id_key = docIdKey
 
         self.source_fingerprint = None
         self.index = {}
@@ -164,6 +172,7 @@ class Indexer:
                     "version": 3,
                     "source": self.source_fingerprint,
                     "exclude_doc_keys": self.exclude_doc_keys,
+                    "doc_id_key": self.doc_id_key,
                     "index": self.index,
                     "doc_map": self.doc_map,
                     "term_frequencies": self.term_frequencies,
@@ -197,6 +206,7 @@ class Indexer:
 
         self.source_fingerprint = data.get("source")
         self.exclude_doc_keys = data.get("exclude_doc_keys", ["id"])
+        self.doc_id_key = data.get("doc_id_key", "id")
         if self._has_ranking_stats(data):
             self.term_frequencies = data["term_frequencies"]
             self.document_frequencies = data["document_frequencies"]
@@ -214,13 +224,35 @@ class Indexer:
         docIdKey: str = "id",
         excludeDocKeys: list[str] | None = None,
     ) -> None:
+        self.load_or_build_documents(
+            lambda: self._load_json_documents(docPath, dataKey),
+            self._json_file_fingerprint(docPath, dataKey),
+            docIdKey=docIdKey,
+            excludeDocKeys=excludeDocKeys,
+        )
+
+    def load_or_build_documents(
+        self,
+        loadDocuments: Callable[[], list[dict[str, Any]]],
+        sourceFingerprint: dict[str, Any] | None,
+        docIdKey: str = "id",
+        excludeDocKeys: list[str] | None = None,
+    ) -> None:
+        # A None source fingerprint means the caller cannot tell when the source
+        # changed (a remote database), so it is rebuilt every time and never cached.
+        if sourceFingerprint is None:
+            self.build_from_documents(loadDocuments(), docIdKey=docIdKey, excludeDocKeys=excludeDocKeys)
+            return
+
+        index_fingerprint = self._index_fingerprint(sourceFingerprint, docIdKey, excludeDocKeys)
         try:
             self.load()
-            if self.source_fingerprint == self._source_fingerprint(docPath, dataKey, docIdKey, excludeDocKeys):
+            if self.source_fingerprint == index_fingerprint:
                 return
         except (FileNotFoundError, ValueError):
             pass
-        self.build(docPath, dataKey=dataKey, docIdKey=docIdKey, excludeDocKeys=excludeDocKeys)
+        self.build_from_documents(loadDocuments(), docIdKey=docIdKey, excludeDocKeys=excludeDocKeys)
+        self.source_fingerprint = index_fingerprint
         self.save()
 
     def _has_ranking_stats(self, data: dict[str, Any]) -> bool:
