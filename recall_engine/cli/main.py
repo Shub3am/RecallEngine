@@ -84,6 +84,7 @@ def cli() -> None:
         dest="top_k",
         help="Number of results to return for ranked modes (default: 10)",
     )
+    search_parser.set_defaults(run_command=_search)
 
     serve_parser = subparsers.add_parser(
         "serve",
@@ -92,18 +93,15 @@ def cli() -> None:
     )
     serve_parser.add_argument("--host", type=str, default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
     serve_parser.add_argument("--port", type=int, default=8000, help="Port (default: 8000)")
+    serve_parser.set_defaults(run_command=_serve)
 
     args = parser.parse_args()
 
-    if args.command not in {"search", "serve"}:
+    if args.command is None:
         parser.print_help()
         return
 
-    engine = SearchEngine.from_json(args.dataset, data_key=args.data_key, exclude_doc_keys=["id"])
-    if args.command == "search":
-        _search(args, engine)
-    else:
-        _serve(args, engine)
+    args.run_command(args, SearchEngine.from_json(args.dataset, data_key=args.data_key))
 
 
 if __name__ == "__main__":
