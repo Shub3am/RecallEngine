@@ -14,7 +14,7 @@ Indexing, search modes, file formats, HTTP or argparse. The caller retrieves the
 
 ## Invariants and gotchas
 
-- `anthropic` is imported lazily, only when no `client` is passed. Missing it raises `ImportError` naming the `rag` extra.
+- `anthropic` is imported lazily, only when no `client` is passed. Missing it raises `ImportError` naming the `rag` extra. The default client is built once per process and reused.
 - Without a `client`, `anthropic.Anthropic()` reads `ANTHROPIC_API_KEY` from the environment.
 - Each passage is sent as a text document with citations enabled and the passage id as its title. Citation `document_index` is the position in `passages`, so the order of `passages` must not change between building the request and reading the response.
 - Citation numbers follow first appearance in the answer, not retrieval rank. `[n]` markers are appended after the text block that cited them.
