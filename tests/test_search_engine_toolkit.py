@@ -212,3 +212,68 @@ def test_default_cache_path_is_outside_the_package():
     from pathlib import Path
 
     assert Indexer().default_file_path == str(Path.home() / ".cache" / "recall_engine" / "index.pkl")
+
+
+def test_load_or_build_documents_reuses_cache_until_fingerprint_changes(tmp_path):
+    documents = [{"passage_id": "a#1", "text": "red apple"}]
+    load_calls = []
+
+    def load_documents():
+        load_calls.append(1)
+        return documents
+
+    def build_with(fingerprint):
+        indexer = Indexer(file_path=str(tmp_path / "cache.pkl"))
+        indexer.load_or_build_documents(load_documents, fingerprint, docIdKey="passage_id")
+        return indexer
+
+    build_with({"kind": "file", "mtime_ns": 1})
+    reused = build_with({"kind": "file", "mtime_ns": 1})
+    build_with({"kind": "file", "mtime_ns": 2})
+
+    assert len(load_calls) == 2
+    assert reused.doc_id_key == "passage_id"
+    assert "a#1" in reused.get_doc_map()
+
+
+def test_load_or_build_documents_never_caches_without_fingerprint(tmp_path):
+    indexer = Indexer(file_path=str(tmp_path / "cache.pkl"))
+    indexer.load_or_build_documents(lambda: [{"id": "1", "text": "apple"}], None)
+
+    assert "1" in indexer.get_doc_map()
+    assert not (tmp_path / "cache.pkl").exists()
+
+
+def test_ask_sends_top_passages_to_answer_question(monkeypatch):
+    engine = SearchEngine.from_documents(
+        [
+            {"id": "1", "title": "Red Apple", "overview": "fresh fruit"},
+            {"id": "2", "title": "Comedy Night", "overview": "funny show"},
+        ]
+    )
+    sent = {}
+
+    def fake_answer_question(question, passages, client=None):
+        sent["passages"] = passages
+        return {"question": question, "answer": "An apple.", "citations": []}
+
+    monkeypatch.setattr("recall_engine.rag.answer_question", fake_answer_question)
+
+    result = engine.ask("which fruit is red", top_k=1)
+
+    assert result["answer"] == "An apple."
+    assert sent["passages"] == [("1", "Red Apple fresh fruit")]
+
+
+def test_ask_raises_when_nothing_matches():
+    engine = SearchEngine.from_documents([{"id": "1", "title": "Red Apple"}])
+
+    with pytest.raises(ValueError):
+        engine.ask("spaceship")
+
+
+def test_ask_rejects_unranked_modes():
+    engine = SearchEngine.from_documents([{"id": "1", "title": "Red Apple"}])
+
+    with pytest.raises(ValueError, match="ask mode must be one of"):
+        engine.ask("apple", mode="keyword")
