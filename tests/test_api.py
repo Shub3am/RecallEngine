@@ -88,3 +88,32 @@ def test_search_with_correct_api_key_succeeds(api_client_with_key: TestClient):
 
 def test_health_stays_open_when_api_key_is_configured(api_client_with_key: TestClient):
     assert api_client_with_key.get("/health").status_code == 200
+
+
+def test_ask_returns_answer_with_citations(api_client: TestClient, monkeypatch):
+    def fake_answer_question(question, passages, client=None):
+        return {
+            "question": question,
+            "answer": "Banana.[1]",
+            "citations": [{"number": 1, "passage_id": passages[0][0], "cited_text": "Green Banana"}],
+        }
+
+    monkeypatch.setattr("recall_engine.rag.answer_question", fake_answer_question)
+
+    response = api_client.post("/ask", json={"question": "which fruit is tropical"})
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == "Banana.[1]"
+    assert response.json()["citations"][0]["passage_id"] == "2"
+
+
+def test_ask_with_no_matching_documents_returns_400(api_client: TestClient):
+    response = api_client.post("/ask", json={"question": "spaceship"})
+
+    assert response.status_code == 400
+
+
+def test_ask_requires_api_key_when_configured(api_client_with_key: TestClient):
+    response = api_client_with_key.post("/ask", json={"question": "banana"})
+
+    assert response.status_code == 401
