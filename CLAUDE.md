@@ -19,7 +19,9 @@ uv run pytest -m "not slow"     # what CI runs
 uv run pytest -v -s             # everything, including slow tests
 ```
 
-CI: `.github/workflows/tests.yml` runs the fast suite on Python 3.12, 3.13 and 3.14. There is no deploy pipeline; users install from git (`pip install "recall-engine[all] @ git+https://github.com/Shub3am/RecallEngine"`).
+CI: `.github/workflows/tests.yml` runs the fast suite on Python 3.12, 3.13 and 3.14.
+
+Release: push a `v*` tag matching `pyproject.toml`'s version. `.github/workflows/release.yml` attaches the wheel and sdist to a GitHub Release and pushes the `Dockerfile` image (amd64, arm64) to `ghcr.io/shub3am/recallengine`.
 
 ## Repo-wide rules
 
