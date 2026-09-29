@@ -1,5 +1,5 @@
 # Ships the recall_engine HTTP server with every extra installed.
-# Must not bake in a dataset: users mount their own JSON file at /data.
+# Must not bake in a dataset: users mount their own files or folder at /data.
 FROM ghcr.io/astral-sh/uv:python3.12-trixie-slim
 
 RUN groupadd --system --gid 999 recall \
@@ -28,4 +28,4 @@ USER recall
 EXPOSE 8000
 
 ENTRYPOINT ["recall_engine"]
-CMD ["serve", "--host", "0.0.0.0", "--port", "8000", "--dataset", "/data/docs.json", "--data-key", "docs"]
+CMD ["serve", "--host", "0.0.0.0", "--port", "8000", "--dataset", "/data"]
