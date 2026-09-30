@@ -24,6 +24,7 @@ HTTP, FastAPI, argparse or anything in `api/` and `cli/`. File formats and datab
 - `recall_engine.sources` and `recall_engine.rag` are imported inside `from_source` and `ask`, so core installs never load their extras.
 - The indexer stores `doc_id_key` in the cache so `ask` can label passages by id. Caches written before 1.1 load it as `"id"`.
 - `semantic_retrieval.py` is imported lazily from `engine.py`. Importing it at module level breaks installs without the `semantic` extra.
+- `load_default_embedding_model` turns off onnxruntime telemetry before the model loads. With it on, macOS processes abort with exit code 134 at shutdown after a semantic or hybrid search. onnxruntime arrives through fastembed, not as a direct dependency.
 - Semantic retrieval is built once per engine behind a lock, because the API calls `search` from a threadpool. Rebuilding or reloading the index resets it.
 - Embeddings are cached at `<index path>.embeddings.npz` only for file-built indexes, keyed by source fingerprint plus model name.
 - Hybrid fuses the top `HYBRID_CANDIDATE_POOL` (100) of BM25 and semantic with RRF, `RRF_K = 60`. Its `score` is only comparable within one query.

@@ -18,9 +18,13 @@ except ImportError as exc:
 
 def load_default_embedding_model() -> Any:
     try:
+        import onnxruntime
         from fastembed import TextEmbedding
     except ImportError as exc:
         raise ImportError(MISSING_SEMANTIC_EXTRA) from exc
+    # onnxruntime's telemetry uploader thread can lock a destroyed mutex while Python exits on macOS,
+    # aborting the process with exit code 134 after the results printed (microsoft/onnxruntime#24579).
+    onnxruntime.disable_telemetry_events()
     # fastembed downloads the ONNX model (~70 MB) on first use and reuses its local copy afterwards.
     return TextEmbedding(model_name=DEFAULT_EMBEDDING_MODEL)
 
