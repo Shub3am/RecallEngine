@@ -1,0 +1,3 @@
+{"ticket": 4812, "customer": "Harbor Labs", "subject": "Export to CSV times out", "resolution": "Large exports now stream in chunks since release 3.2."}
+{"ticket": 4820, "customer": "Pine & Co", "subject": "Refund for duplicate charge", "resolution": "Duplicate charge refunded the same day."}
+{"ticket": 4833, "customer": "Kite Studio", "subject": "SSO login loop", "resolution": "Fixed by clearing the stale SAML session cookie."}
