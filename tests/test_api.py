@@ -1,3 +1,5 @@
+from importlib.metadata import version
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -117,3 +119,9 @@ def test_ask_requires_api_key_when_configured(api_client_with_key: TestClient):
     response = api_client_with_key.post("/ask", json={"question": "banana"})
 
     assert response.status_code == 401
+
+
+def test_openapi_reports_the_package_version():
+    client = TestClient(create_app(_engine()))
+
+    assert client.get("/openapi.json").json()["info"]["version"] == version("recall-engine")

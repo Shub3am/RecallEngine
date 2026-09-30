@@ -20,6 +20,7 @@ Datasets, files, cache paths or CLI arguments. `create_app(engine, api_key)` rec
 - `/ask` is a plain `def` as well: the Claude call blocks on network I/O. It needs the `rag` extra and `ANTHROPIC_API_KEY` in the server's environment; without them the request fails with 500.
 - `/health` is never behind the API key so load balancers can probe it.
 - Keys are compared with `secrets.compare_digest`.
+- The OpenAPI version comes from the installed `recall-engine` package metadata, so importing the app from a source tree that was never installed raises `PackageNotFoundError`.
 
 ## Called by
 

@@ -4,6 +4,7 @@ Must not build or load indexes, read files, or parse CLI arguments; the caller
 hands it a ready engine so the same app works for any dataset.
 """
 import secrets
+from importlib.metadata import version
 from typing import Any
 
 MISSING_API_EXTRA = 'The HTTP API needs the optional extra: pip install "recall-engine[api]"'
@@ -45,7 +46,11 @@ class AskResponse(BaseModel):
 
 
 def create_app(engine: SearchEngine, api_key: str | None = None) -> FastAPI:
-    app = FastAPI(title="RecallEngine", summary="Keyword, boolean, ranked, semantic and hybrid search")
+    app = FastAPI(
+        title="RecallEngine",
+        summary="Search and cited answers over files, folders and databases",
+        version=version("recall-engine"),
+    )
     api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
     def require_api_key(provided_api_key: str | None = Depends(api_key_header)) -> None:
