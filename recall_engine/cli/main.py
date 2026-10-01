@@ -4,9 +4,9 @@ import os
 
 from recall_engine.search_engine import SearchEngine
 from recall_engine.search_engine.engine import (
-    ASK_MODES,
-    DEFAULT_ASK_MODE,
-    DEFAULT_ASK_TOP_K,
+    RETRIEVAL_MODES,
+    DEFAULT_RETRIEVAL_MODE,
+    DEFAULT_RETRIEVAL_TOP_K,
     RANKED_MODES,
     SEARCH_MODES,
 )
@@ -127,16 +127,16 @@ def cli() -> None:
     ask_parser.add_argument(
         "--mode",
         type=str,
-        default=DEFAULT_ASK_MODE,
-        choices=ASK_MODES,
-        help=f"Retrieval mode used to pick passages (default: {DEFAULT_ASK_MODE})",
+        default=DEFAULT_RETRIEVAL_MODE,
+        choices=RETRIEVAL_MODES,
+        help=f"Retrieval mode used to pick passages (default: {DEFAULT_RETRIEVAL_MODE})",
     )
     ask_parser.add_argument(
         "--top-k",
         type=int,
-        default=DEFAULT_ASK_TOP_K,
+        default=DEFAULT_RETRIEVAL_TOP_K,
         dest="top_k",
-        help=f"Number of passages sent to Claude (default: {DEFAULT_ASK_TOP_K})",
+        help=f"Number of passages sent to Claude (default: {DEFAULT_RETRIEVAL_TOP_K})",
     )
     ask_parser.set_defaults(run_command=_ask)
 

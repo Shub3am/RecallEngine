@@ -14,7 +14,7 @@ How indexing, ranking or the HTTP routes work. It builds an engine with `SearchE
 
 ## Invariants and gotchas
 
-- Mode choices and `ask` defaults come from `SEARCH_MODES`, `ASK_MODES` and `DEFAULT_ASK_*` in `search_engine/engine.py`; do not hardcode them here.
+- Mode choices and `ask` defaults come from `SEARCH_MODES`, `RETRIEVAL_MODES` and `DEFAULT_RETRIEVAL_*` in `search_engine/engine.py`; do not hardcode them here.
 - `serve` reads the API key from the `RECALL_ENGINE_API_KEY` environment variable, never a flag, so it does not show up in `ps`.
 - `serve` binds to `127.0.0.1` by default. Exposing it needs `--host 0.0.0.0`.
 - The SQL flag is `--sql`, not `--query`, because the `search` subcommand already uses `query` for the search text.
