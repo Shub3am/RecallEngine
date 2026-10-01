@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from recall_engine import SearchEngine
+from tests.test_semantic_search import ConceptEmbeddingModel
 
 #Test Command: uv run pytest tests/test_rag_pipeline.py -v
 
@@ -44,3 +45,34 @@ def test_sources_that_produce_the_same_passage_id_are_rejected(tmp_path: Path):
 
     with pytest.raises(ValueError, match="notes.md#1"):
         SearchEngine.from_source([str(first), str(second)], cache_path=str(tmp_path / "index.pkl"))
+
+
+def test_embed_caches_vectors_so_a_reopened_index_skips_embedding(two_folders: list[str], tmp_path: Path):
+    cache_path = str(tmp_path / "index.pkl")
+    ingesting_engine = SearchEngine.from_source(two_folders, cache_path=cache_path, embedding_model=ConceptEmbeddingModel())
+
+    assert ingesting_engine.embed() == 2
+    assert (tmp_path / "index.embeddings.npz").exists()
+
+    reopening_model = ConceptEmbeddingModel()
+    reopened = SearchEngine.from_index(cache_path, embedding_model=reopening_model)
+    results = reopened.search("refunds", mode="hybrid", top_k=1)
+
+    assert [doc["passage_id"] for doc in results] == ["refunds.md#1"]
+    assert reopening_model.embedded_passage_count == 0
+
+
+def test_embedding_model_can_be_chosen_by_name(monkeypatch):
+    loaded_model_names = []
+
+    def fake_load_embedding_model(model_name):
+        loaded_model_names.append(model_name)
+        return ConceptEmbeddingModel()
+
+    monkeypatch.setattr(
+        "recall_engine.search_engine.semantic_retrieval.load_embedding_model", fake_load_embedding_model
+    )
+    engine = SearchEngine.from_documents([{"id": "1", "text": "ocean"}], embedding_model="BAAI/bge-base-en-v1.5")
+
+    assert engine.embed() == 1
+    assert loaded_model_names == ["BAAI/bge-base-en-v1.5"]

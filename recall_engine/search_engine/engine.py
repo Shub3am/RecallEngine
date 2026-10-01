@@ -119,6 +119,21 @@ class SearchEngine:
         )
         return engine
 
+    @classmethod
+    def from_index(cls, index_path: str, embedding_model: Any | None = None) -> "SearchEngine":
+        """Open an index saved by `from_source` or `from_json` without reading its sources again."""
+        engine = cls(indexer=Indexer(file_path=index_path), embedding_model=embedding_model)
+        engine.indexer.load()
+        return engine
+
+    def embed(self) -> int:
+        """Embed every passage now, so the first semantic or hybrid query does not pay for it.
+
+        Returns the number of passages embedded. Vectors are cached next to the index unless a source is a
+        database URL, because only file-backed sources have a fingerprint to key the cache on.
+        """
+        return len(self._get_semantic_retrieval().doc_ids)
+
     def build_index(
         self,
         doc_path: str,
@@ -253,11 +268,13 @@ class SearchEngine:
         from recall_engine.search_engine.semantic_retrieval import (
             SemanticRetrieval,
             embedding_model_name,
-            load_default_embedding_model,
+            load_embedding_model,
         )
 
         if self.embedding_model is None:
-            self.embedding_model = load_default_embedding_model()
+            self.embedding_model = load_embedding_model()
+        elif isinstance(self.embedding_model, str):
+            self.embedding_model = load_embedding_model(self.embedding_model)
 
         source_fingerprint = self.indexer.source_fingerprint
         embeddings_cache_path = Path(self.indexer.default_file_path).with_suffix(".embeddings.npz")
