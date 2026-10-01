@@ -16,7 +16,7 @@
   <img alt="Searching a folder of mixed documents and a SQLite table from the CLI" src="docs/images/any-source.gif" width="820">
 </p>
 
-<p align="center"><a href="docs/demo/recallengine-demo.mp4">Watch the full walkthrough video</a>: a folder of mixed formats, boolean search, a SQLite table and the authenticated HTTP API with hybrid search.</p>
+<p align="center"><a href="docs/demo/recallengine-demo.mp4">Watch the full walkthrough video</a>: the Python library in an editor, a folder of mixed formats from the CLI, boolean search, a SQLite table and the authenticated HTTP API with hybrid search.</p>
 
 ## Why RecallEngine
 
