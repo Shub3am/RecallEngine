@@ -22,7 +22,7 @@ How indexing, ranking or the HTTP routes work. It opens an engine with `SearchEn
 - The default `--dataset` is the relative path `./datasets/movies.json`, which only exists when run from the repo root.
 - `recall_engine.api` and uvicorn are imported inside `_serve` so `search` works without the `api` extra.
 - `--dataset` and `--index` are mutually exclusive. With `--index`, `--data-key`, `--table` and `--sql` are ignored because the saved index already holds the passages.
-- `ingest` calls `indexer.save()` itself, because `from_source` never writes a cache for database URLs. A saved URL snapshot has no fingerprint, so its embeddings are not cached and `--embed` only pays off within that run.
+- `ingest` calls `indexer.save()` itself only when there is no fingerprint, because `from_source` already saved file-backed sources and never writes one for database URLs. A saved URL snapshot has no fingerprint, so its embeddings cannot be cached and `ingest` skips `--embed` for it.
 
 ## Called by
 
