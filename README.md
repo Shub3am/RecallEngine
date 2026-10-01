@@ -209,4 +209,4 @@ The first semantic search downloads the embedding model (about 70 MB) and embeds
 
 ## Status
 
-Version 1.1.0.
+Version 1.2.0.
