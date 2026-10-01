@@ -88,7 +88,8 @@ Type "# Hybrid search: BM25 plus embeddings, so meaning matches without the exac
 Enter
 Type `curl -s localhost:8765/search -H 'X-API-Key: demo-key' --json '{"query": "how do I get my money back", "mode": "hybrid", "top_k": 3}' | jq -c '.results[] | {rank, passage_id, source}'`
 Enter
-Wait@120s /^\$\s*$/
+# The prompt regex can match before a slow hybrid query answers, so wait for the third result itself.
+Wait+Screen@180s /"rank":3/
 Sleep 5s
 Type "clear"
 Enter
