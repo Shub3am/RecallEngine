@@ -2,7 +2,7 @@
 
 ## Owns
 
-The FastAPI app: request and response models, the `/health`, `/search` and `/ask` routes, optional `X-API-Key` auth, and mapping engine errors to HTTP status codes.
+The FastAPI app: request and response models, the `/health`, `/search`, `/retrieve` and `/ask` routes, optional `X-API-Key` auth, and mapping engine errors to HTTP status codes.
 
 ## Must not know about
 
@@ -15,7 +15,7 @@ Datasets, files, cache paths or CLI arguments. `create_app(engine, api_key)` rec
 ## Invariants and gotchas
 
 - fastapi and pydantic are only available with the `api` extra; importing this package without them raises an `ImportError` naming the extra.
-- `/search` is a plain `def`, not `async def`, so FastAPI runs the CPU-bound search in its threadpool. The engine must stay thread-safe for that reason.
+- `/search` and `/retrieve` are plain `def`, not `async def`, so FastAPI runs the CPU-bound search in its threadpool. The engine must stay thread-safe for that reason.
 - `ValueError` from the engine becomes 400; missing or invalid request fields are 422 from pydantic; a missing or wrong key is 401.
 - `/ask` is a plain `def` as well: the Claude call blocks on network I/O. It needs the `rag` extra and `ANTHROPIC_API_KEY` in the server's environment; without them the request fails with 500.
 - `/health` is never behind the API key so load balancers can probe it.

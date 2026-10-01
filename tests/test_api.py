@@ -125,3 +125,28 @@ def test_openapi_reports_the_package_version():
     client = TestClient(create_app(_engine()))
 
     assert client.get("/openapi.json").json()["info"]["version"] == version("recall-engine")
+
+
+def test_retrieve_returns_passages_with_their_text(api_client: TestClient):
+    response = api_client.post("/retrieve", json={"query": "banana", "top_k": 1})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["mode"] == "bm25"
+    assert body["count"] == 1
+    assert body["passages"][0]["id"] == "2"
+    assert body["passages"][0]["rank"] == 1
+    assert "Green Banana" in body["passages"][0]["text"]
+    assert body["passages"][0]["document"]["title"] == "Green Banana"
+
+
+def test_retrieve_rejects_unranked_mode(api_client: TestClient):
+    response = api_client.post("/retrieve", json={"query": "banana", "mode": "keyword"})
+
+    assert response.status_code == 400
+
+
+def test_retrieve_requires_the_api_key(api_client_with_key: TestClient):
+    response = api_client_with_key.post("/retrieve", json={"query": "banana"})
+
+    assert response.status_code == 401

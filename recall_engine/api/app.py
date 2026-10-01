@@ -33,6 +33,19 @@ class SearchResponse(BaseModel):
     results: list[dict[str, Any]]
 
 
+class RetrieveRequest(BaseModel):
+    query: str
+    mode: str = DEFAULT_RETRIEVAL_MODE
+    top_k: int = DEFAULT_RETRIEVAL_TOP_K
+
+
+class RetrieveResponse(BaseModel):
+    query: str
+    mode: str
+    count: int
+    passages: list[dict[str, Any]]
+
+
 class AskRequest(BaseModel):
     question: str
     mode: str = DEFAULT_RETRIEVAL_MODE
@@ -74,6 +87,16 @@ def create_app(engine: SearchEngine, api_key: str | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return SearchResponse(
             query=search_request.query, mode=search_request.mode, count=len(results), results=results
+        )
+
+    @app.post("/retrieve", response_model=RetrieveResponse, dependencies=[Depends(require_api_key)])
+    def retrieve(retrieve_request: RetrieveRequest) -> RetrieveResponse:
+        try:
+            passages = engine.retrieve(retrieve_request.query, mode=retrieve_request.mode, top_k=retrieve_request.top_k)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return RetrieveResponse(
+            query=retrieve_request.query, mode=retrieve_request.mode, count=len(passages), passages=passages
         )
 
     # Plain def: the Claude call blocks on network I/O, so it runs in the threadpool too.
