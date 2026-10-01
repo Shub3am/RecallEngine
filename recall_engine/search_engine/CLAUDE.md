@@ -12,7 +12,7 @@ HTTP, FastAPI, argparse or anything in `api/` and `cli/`. File formats and datab
 
 - `SearchEngine.from_json(path, ...)`: build or load a cached index from a JSON file.
 - `SearchEngine.from_documents(docs, ...)`: in-memory index, never touches disk.
-- `SearchEngine.from_source(source, ...)`: any file, folder or database URL through `recall_engine.sources`, cached like `from_json`.
+- `SearchEngine.from_source(source, ...)`: one source or a list of files, folders and database URLs through `recall_engine.sources`, merged into one index and cached like `from_json`. Raises `ValueError` when two sources produce the same passage id, because the indexer keys documents by it.
 - `SearchEngine.ask(question, mode, top_k)`: ranked modes only (`ASK_MODES`), because unranked modes ignore `top_k`. Raises `ValueError` for another mode or when nothing matches, and anything `answer_question` raises.
 - `SearchEngine.search(query, mode, top_k)`: raises `ValueError` for a bad mode, a non-positive `top_k` or a malformed boolean query. Callers map that to user errors.
 
@@ -20,7 +20,8 @@ HTTP, FastAPI, argparse or anything in `api/` and `cli/`. File formats and datab
 
 - The index cache defaults to `~/.cache/recall_engine/index.pkl`. It is reused only when the source fingerprint (path, size, mtime, data key, id key, excluded keys) matches; otherwise it is rebuilt. Bump the pickle `version` in `Indexer.save` when its layout changes.
 - The cache is a pickle. Only load caches this library wrote; never point `cache_path` at an untrusted file.
-- `from_source` caches only when `sources.source_fingerprint` returns one; database URLs return `None`, so they are reloaded on every start and have no embeddings cache.
+- A single source keeps its own fingerprint and a list is stored as `{"sources": [...]}`, so pre-1.2 caches stay valid.
+- `from_source` caches only when every `sources.source_fingerprint` returns one; database URLs return `None`, so they are reloaded on every start and have no embeddings cache.
 - `recall_engine.sources` and `recall_engine.rag` are imported inside `from_source` and `ask`, so core installs never load their extras.
 - The indexer stores `doc_id_key` in the cache so `ask` can label passages by id. Caches written before 1.1 load it as `"id"`.
 - `semantic_retrieval.py` is imported lazily from `engine.py`. Importing it at module level breaks installs without the `semantic` extra.
