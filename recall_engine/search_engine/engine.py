@@ -124,7 +124,7 @@ class SearchEngine:
     def from_index(cls, index_path: str, embedding_model: Any | None = None) -> "SearchEngine":
         """Open an index saved by `from_source` or `from_json` without reading its sources again."""
         engine = cls(indexer=Indexer(file_path=index_path), embedding_model=embedding_model)
-        engine.indexer.load()
+        engine.load_index()
         return engine
 
     def embed(self) -> int:
@@ -200,7 +200,8 @@ class SearchEngine:
                     "score": result["score"],
                     "id": doc_id,
                     "text": self.indexer.get_document_text(doc_id),
-                    "document": dict(self.indexer.get_doc_map()[doc_id]),
+                    # search already returns a copy of each document, with rank and score added.
+                    "document": {key: value for key, value in result.items() if key not in ("rank", "score")},
                 }
             )
         return passages
@@ -281,15 +282,14 @@ class SearchEngine:
     def _build_semantic_retrieval(self) -> Any:
         # Imported here so keyword-only installs never need numpy or fastembed.
         from recall_engine.search_engine.semantic_retrieval import (
+            DEFAULT_EMBEDDING_MODEL,
             SemanticRetrieval,
             embedding_model_name,
             load_embedding_model,
         )
 
-        if self.embedding_model is None:
-            self.embedding_model = load_embedding_model()
-        elif isinstance(self.embedding_model, str):
-            self.embedding_model = load_embedding_model(self.embedding_model)
+        if self.embedding_model is None or isinstance(self.embedding_model, str):
+            self.embedding_model = load_embedding_model(self.embedding_model or DEFAULT_EMBEDDING_MODEL)
 
         source_fingerprint = self.indexer.source_fingerprint
         embeddings_cache_path = Path(self.indexer.default_file_path).with_suffix(".embeddings.npz")
