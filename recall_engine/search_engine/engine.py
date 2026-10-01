@@ -13,9 +13,10 @@ from recall_engine.search_engine.tokenizer import Tokenizer
 SEARCH_MODES = ("auto", "keyword", "boolean", "bm25", "tfidf", "semantic", "hybrid")
 LEXICAL_RANKED_MODES = {"bm25", "tfidf"}
 RANKED_MODES = LEXICAL_RANKED_MODES | {"semantic", "hybrid"}
-ASK_MODES = tuple(mode for mode in SEARCH_MODES if mode in RANKED_MODES)
-DEFAULT_ASK_MODE = "bm25"
-DEFAULT_ASK_TOP_K = 5
+# Retrieval feeds a fixed number of passages to a model, so only modes that honour top_k qualify.
+RETRIEVAL_MODES = tuple(mode for mode in SEARCH_MODES if mode in RANKED_MODES)
+DEFAULT_RETRIEVAL_MODE = "bm25"
+DEFAULT_RETRIEVAL_TOP_K = 5
 
 # Reciprocal Rank Fusion constant from Cormack et al. (2009); 60 damps the
 # influence of any single ranking's top positions.
@@ -184,27 +185,41 @@ class SearchEngine:
             return self._search_hybrid(query, top_k)
         return self._search_keyword(query)
 
+    def retrieve(
+        self, query: str, mode: str = DEFAULT_RETRIEVAL_MODE, top_k: int = DEFAULT_RETRIEVAL_TOP_K
+    ) -> list[dict[str, Any]]:
+        """Return the top passages for `query` with their text, ready to place in any model's prompt."""
+        if mode not in RETRIEVAL_MODES:
+            raise ValueError(f"retrieval mode must be one of: {', '.join(RETRIEVAL_MODES)}")
+        passages = []
+        for result in self.search(query, mode=mode, top_k=top_k):
+            doc_id = str(result[self.indexer.doc_id_key])
+            passages.append(
+                {
+                    "rank": result["rank"],
+                    "score": result["score"],
+                    "id": doc_id,
+                    "text": self.indexer.get_document_text(doc_id),
+                    "document": dict(self.indexer.get_doc_map()[doc_id]),
+                }
+            )
+        return passages
+
     def ask(
         self,
         question: str,
-        mode: str = DEFAULT_ASK_MODE,
-        top_k: int = DEFAULT_ASK_TOP_K,
+        mode: str = DEFAULT_RETRIEVAL_MODE,
+        top_k: int = DEFAULT_RETRIEVAL_TOP_K,
         client: Any | None = None,
     ) -> dict[str, Any]:
         """Retrieve the top passages for `question` and have Claude answer from them with citations."""
         # Imported here so installs without the `rag` extra never need anthropic.
         from recall_engine.rag import answer_question
 
-        if mode not in ASK_MODES:
-            raise ValueError(f"ask mode must be one of: {', '.join(ASK_MODES)}")
-        results = self.search(question, mode=mode, top_k=top_k)
-        if not results:
+        passages = self.retrieve(question, mode=mode, top_k=top_k)
+        if not passages:
             raise ValueError("No documents matched the question, so there is nothing to answer from.")
-        passages = []
-        for result in results:
-            doc_id = str(result[self.indexer.doc_id_key])
-            passages.append((doc_id, self.indexer.get_document_text(doc_id)))
-        return answer_question(question, passages, client=client)
+        return answer_question(question, [(passage["id"], passage["text"]) for passage in passages], client=client)
 
     def _resolve_mode(self, query: str, mode: str) -> str:
         if mode not in SEARCH_MODES:

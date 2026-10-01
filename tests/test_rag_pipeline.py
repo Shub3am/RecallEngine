@@ -76,3 +76,29 @@ def test_embedding_model_can_be_chosen_by_name(monkeypatch):
 
     assert engine.embed() == 1
     assert loaded_model_names == ["BAAI/bge-base-en-v1.5"]
+
+
+def test_retrieve_returns_ranked_passages_with_their_text(two_folders: list[str], tmp_path: Path):
+    engine = SearchEngine.from_source(two_folders, cache_path=str(tmp_path / "index.pkl"))
+
+    passages = engine.retrieve("password login", mode="bm25", top_k=1)
+
+    assert len(passages) == 1
+    assert passages[0]["rank"] == 1
+    assert passages[0]["id"] == "faq.md#1"
+    assert passages[0]["text"] == "Reset your password from the login page."
+    assert passages[0]["document"]["passage_id"] == "faq.md#1"
+    assert passages[0]["score"] > 0
+
+
+def test_retrieve_rejects_unranked_modes(two_folders: list[str], tmp_path: Path):
+    engine = SearchEngine.from_source(two_folders, cache_path=str(tmp_path / "index.pkl"))
+
+    with pytest.raises(ValueError, match="retrieval mode must be one of"):
+        engine.retrieve("password", mode="keyword")
+
+
+def test_retrieve_returns_nothing_when_no_passage_matches(two_folders: list[str], tmp_path: Path):
+    engine = SearchEngine.from_source(two_folders, cache_path=str(tmp_path / "index.pkl"))
+
+    assert engine.retrieve("zebra", mode="bm25") == []

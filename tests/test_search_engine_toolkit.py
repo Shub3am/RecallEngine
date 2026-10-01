@@ -275,5 +275,5 @@ def test_ask_raises_when_nothing_matches():
 def test_ask_rejects_unranked_modes():
     engine = SearchEngine.from_documents([{"id": "1", "title": "Red Apple"}])
 
-    with pytest.raises(ValueError, match="ask mode must be one of"):
+    with pytest.raises(ValueError, match="retrieval mode must be one of"):
         engine.ask("apple", mode="keyword")

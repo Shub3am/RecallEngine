@@ -17,7 +17,7 @@ except ImportError as exc:
     raise ImportError(MISSING_API_EXTRA) from exc
 
 from recall_engine.search_engine import SearchEngine
-from recall_engine.search_engine.engine import DEFAULT_ASK_MODE, DEFAULT_ASK_TOP_K
+from recall_engine.search_engine.engine import DEFAULT_RETRIEVAL_MODE, DEFAULT_RETRIEVAL_TOP_K
 
 
 class SearchRequest(BaseModel):
@@ -35,8 +35,8 @@ class SearchResponse(BaseModel):
 
 class AskRequest(BaseModel):
     question: str
-    mode: str = DEFAULT_ASK_MODE
-    top_k: int = DEFAULT_ASK_TOP_K
+    mode: str = DEFAULT_RETRIEVAL_MODE
+    top_k: int = DEFAULT_RETRIEVAL_TOP_K
 
 
 class AskResponse(BaseModel):
