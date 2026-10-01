@@ -175,13 +175,49 @@ indexer.get_document_frequencies()  # dict[term -> int]
 
 ---
 
+### 12. RAG pipeline: ingest, embed, retrieve
+
+Ingest any mix of files, folders and database URLs into one saved index, embed it once, then retrieve passages for a prompt:
+
+```python
+from recall_engine import SearchEngine
+
+# Ingest: every source is parsed, split into passages and saved to one index.
+engine = SearchEngine.from_source(["./handbook", "./policies", "shop.db"], cache_path="kb.pkl")
+
+# Embed: pay the embedding cost now instead of on the first semantic or hybrid query.
+engine.embed()
+
+# Later, in another process: open the saved index without reading the sources again.
+engine = SearchEngine.from_index("kb.pkl")
+
+for passage in engine.retrieve("how do I get my money back", mode="hybrid", top_k=5):
+    print(passage["rank"], passage["id"], passage["text"])
+```
+
+`retrieve` returns `{"rank", "score", "id", "text", "document"}` per passage, ready to place in any model's prompt. It accepts the ranked modes (`bm25`, `tfidf`, `semantic`, `hybrid`) and defaults to `bm25` with 5 passages. `ask` runs `retrieve` and has Claude answer from the passages with citations (needs the `rag` extra and `ANTHROPIC_API_KEY`).
+
+- Two sources that produce the same passage id (for example `notes.md` in two folders) raise `ValueError`. Ingest them under different file names.
+- `from_source` with a list rebuilds the whole index when any file-backed source changes. Database URLs are never fingerprinted, so they are re-read on every `from_source`; use `from_index` on a saved snapshot instead.
+- Embeddings are cached at `kb.embeddings.npz` for file-backed sources only. A snapshot that includes a database URL is embedded again in each new process.
+- Pick another model with `embedding_model="BAAI/bge-base-en-v1.5"` (any name fastembed supports). Use the same model when reopening, or the cached vectors are not reused.
+
+---
+
 ## CLI
 
 ```bash
 recall_engine search "action hero" --dataset datasets/movies.json --data-key movies
 recall_engine search "space travel" --mode hybrid --top-k 5
 recall_engine serve --dataset datasets/movies.json --data-key movies --host 127.0.0.1 --port 8000
+
+recall_engine ingest ./handbook ./policies --index kb.pkl --embed
+recall_engine retrieve "how do I get my money back" --index kb.pkl --mode hybrid --top-k 5
+recall_engine ask "What is the refund window?" --index kb.pkl
+recall_engine serve --index kb.pkl
 ```
+
+`--index` opens an index saved by `ingest` and replaces `--dataset` on `search`, `retrieve`, `ask` and `serve`. `--embedding-model` picks the fastembed model on every command.
 
 `--mode` accepts every mode in the table below and defaults to `bm25`. `python -m recall_engine` works the same way.
 
@@ -195,12 +231,14 @@ recall_engine serve --dataset datasets/movies.json --data-key movies --host 127.
 |--------|-----------|---------------------------------------------|---------|
 | GET    | `/health` |                                             | `{"status": "ok", "documents": <count>}` |
 | POST   | `/search` | `{"query": str, "mode": str, "top_k": int}` | `{"query", "mode", "count", "results"}` |
+| POST   | `/retrieve` | `{"query": str, "mode": str, "top_k": int}` | `{"query", "mode", "count", "passages"}` |
+| POST   | `/ask`    | `{"question": str, "mode": str, "top_k": int}` | `{"question", "answer", "citations"}` |
 
-`mode` defaults to `auto` and `top_k` is optional. An unknown mode, a non-positive `top_k` or a malformed boolean query returns 400. A missing `query` returns 422. OpenAPI docs are at `/docs`.
+On `/search`, `mode` defaults to `auto` and `top_k` is optional. `/retrieve` and `/ask` take ranked modes only and default to `bm25` with 5 passages. An unknown mode, a non-positive `top_k` or a malformed boolean query returns 400. A missing `query` returns 422. OpenAPI docs are at `/docs`.
 
 ### Authentication
 
-Set `RECALL_ENGINE_API_KEY` in the server's environment. `/search` then requires a matching `X-API-Key` header and returns 401 otherwise. `/health` stays open.
+Set `RECALL_ENGINE_API_KEY` in the server's environment. `/search`, `/retrieve` and `/ask` then require a matching `X-API-Key` header and returns 401 otherwise. `/health` stays open.
 
 ```bash
 RECALL_ENGINE_API_KEY=change-me recall_engine serve --dataset docs.json --data-key docs

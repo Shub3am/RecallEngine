@@ -24,6 +24,7 @@
 |---|---|
 | **Any source** | A file, a folder, a SQLite file or any SQLAlchemy database URL. Folders are walked, long text is split into overlapping passages. |
 | **Every search mode** | Exact keyword, boolean (`AND`, `OR`, `NOT`, parentheses), BM25, TF-IDF, semantic embeddings and hybrid rank fusion. |
+| **RAG building blocks** | Ingest many sources into one saved index, embed it once, and `retrieve` passages for any model. |
 | **Cited answers** | `ask` retrieves the best passages and has Claude answer from them only, with numbered citations. |
 | **Library, CLI or HTTP** | The same engine from Python, the `recall_engine` command or a FastAPI server with optional API key auth. |
 | **Light by default** | The core has no heavy dependencies. PDF parsing, embeddings, databases, the server and Claude are opt-in extras. |
@@ -99,6 +100,27 @@ SearchEngine.from_documents([{"id": "1", "title": "Red Apple", "overview": "fres
 SearchEngine.from_json("movies.json", data_key="movies")
 ```
 
+## RAG pipeline: ingest, embed, retrieve
+
+Build a knowledge base from several sources once, then retrieve passages for any model's prompt, or let `ask` hand them to Claude:
+
+```python
+engine = SearchEngine.from_source(["./handbook", "./policies", "shop.db"], cache_path="kb.pkl")
+engine.embed()                                  # embed every passage now, cached next to the index
+
+engine = SearchEngine.from_index("kb.pkl")      # later: reopen without reading the sources
+for passage in engine.retrieve("how do I get my money back", mode="hybrid", top_k=5):
+    print(passage["rank"], passage["id"], passage["text"])
+```
+
+```bash
+recall_engine ingest ./handbook ./policies --index kb.pkl --embed
+recall_engine retrieve "how do I get my money back" --index kb.pkl --mode hybrid
+curl -X POST localhost:8000/retrieve -H 'content-type: application/json' -d '{"query": "refund window"}'
+```
+
+Each passage comes back as `{"rank", "score", "id", "text", "document"}`. Choose the embedding model with `embedding_model=` or `--embedding-model`, and use the same one when reopening the index.
+
 ## CLI
 
 <p align="center">
@@ -110,6 +132,8 @@ recall_engine search "refund policy" --dataset ./docs --mode bm25 --top-k 5
 recall_engine search "desk" --dataset shop.db --table products
 recall_engine ask "How long do customers have to ask for a refund?" --dataset ./docs
 recall_engine serve --dataset ./docs --port 8000
+recall_engine ingest ./docs ./policies --index kb.pkl --embed
+recall_engine retrieve "refund window" --index kb.pkl --top-k 3
 ```
 
 `ask` prints the answer, then a `Sources:` list with each citation's passage id and the quoted text.
@@ -124,6 +148,7 @@ recall_engine serve --dataset ./docs --port 8000
 |---|---|---|
 | `GET /health` | | `{"status", "documents"}` |
 | `POST /search` | `{"query", "mode", "top_k"}` | `{"query", "mode", "count", "results"}` |
+| `POST /retrieve` | `{"query", "mode", "top_k"}` | `{"query", "mode", "count", "passages"}` |
 | `POST /ask` | `{"question", "mode", "top_k"}` | `{"question", "answer", "citations"}` |
 
 ```bash
@@ -140,7 +165,7 @@ Invalid modes, malformed boolean queries and questions with no matching document
   <img alt="Swagger UI listing the health, search and ask endpoints" src="docs/images/api-docs.png" width="820">
 </p>
 
-Set `RECALL_ENGINE_API_KEY` before `recall_engine serve` to require an `X-API-Key` header on `/search` and `/ask`. `/health` stays open for load balancer probes. The server binds to `127.0.0.1` by default; pass `--host 0.0.0.0` to expose it, and put TLS in front of it.
+Set `RECALL_ENGINE_API_KEY` before `recall_engine serve` to require an `X-API-Key` header on `/search`, `/retrieve` and `/ask`. `/health` stays open for load balancer probes. The server binds to `127.0.0.1` by default; pass `--host 0.0.0.0` to expose it, and put TLS in front of it.
 
 Mount it in your own app:
 
@@ -172,7 +197,7 @@ The image has every extra installed and serves whatever you mount at `/data`: a 
 | `semantic` | Ranked by embedding similarity (`BAAI/bge-small-en-v1.5`)            | Yes     |
 | `hybrid`   | BM25 and semantic rankings merged with Reciprocal Rank Fusion        | Yes     |
 
-Ranked results carry two extra fields: `score` and `rank`. `ask` accepts the ranked modes and defaults to `bm25` with the top 5 passages.
+Ranked results carry two extra fields: `score` and `rank`. `retrieve` and `ask` accept the ranked modes and default to `bm25` with the top 5 passages.
 
 The first semantic search downloads the embedding model (about 70 MB) and embeds every document. For files and folders the embeddings are cached next to the index. Database URLs are reloaded on every start, because there is no cheap way to tell whether a remote database changed.
 
