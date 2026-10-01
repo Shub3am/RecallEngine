@@ -72,20 +72,48 @@ class SearchEngine:
     @classmethod
     def from_source(
         cls,
-        source: str,
+        source: str | list[str],
         data_key: str = "",
         table: str | None = None,
         query: str | None = None,
         cache_path: str | None = None,
         embedding_model: Any | None = None,
     ) -> "SearchEngine":
-        """Index any file, folder or database that `recall_engine.sources` can read."""
+        """Index one or more files, folders or databases that `recall_engine.sources` can read into one index."""
         from recall_engine.sources import PASSAGE_ID_KEY, SOURCE_KEY, load_documents, source_fingerprint
+
+        sources = [source] if isinstance(source, str) else list(source)
+
+        def load_all_documents() -> list[dict[str, Any]]:
+            documents = []
+            seen_passage_ids: set[str] = set()
+            for each_source in sources:
+                for document in load_documents(each_source, data_key=data_key, table=table, query=query):
+                    # The indexer keys documents by passage id, so a repeat would silently corrupt its statistics.
+                    if document[PASSAGE_ID_KEY] in seen_passage_ids:
+                        raise ValueError(
+                            f"Passage id {document[PASSAGE_ID_KEY]!r} comes from more than one source; "
+                            "ingest sources whose file names or table names differ."
+                        )
+                    seen_passage_ids.add(document[PASSAGE_ID_KEY])
+                    documents.append(document)
+            return documents
+
+        fingerprints = [
+            source_fingerprint(each_source, data_key=data_key, table=table, query=query) for each_source in sources
+        ]
+        if any(fingerprint is None for fingerprint in fingerprints):
+            combined_fingerprint = None
+        elif len(fingerprints) == 1:
+            # A single source keeps its own fingerprint so caches written before multi-source ingestion stay valid.
+            combined_fingerprint = fingerprints[0]
+        else:
+            combined_fingerprint = {"sources": fingerprints}
 
         engine = cls(indexer=Indexer(file_path=cache_path), embedding_model=embedding_model)
         engine.indexer.load_or_build_documents(
-            loadDocuments=lambda: load_documents(source, data_key=data_key, table=table, query=query),
-            sourceFingerprint=source_fingerprint(source, data_key=data_key, table=table, query=query),
+            loadDocuments=load_all_documents,
+            sourceFingerprint=combined_fingerprint,
             docIdKey=PASSAGE_ID_KEY,
             excludeDocKeys=[PASSAGE_ID_KEY, SOURCE_KEY, "id"],
         )
