@@ -8,7 +8,7 @@ Search and RAG library for files, folders and databases: keyword, boolean, BM25,
 - `recall_engine/sources/`: turns files, folders and databases into documents (`formats`, `database` extras). See `recall_engine/sources/CLAUDE.md`.
 - `recall_engine/rag/`: answers a question from retrieved passages with Claude, with citations (`rag` extra). See `recall_engine/rag/CLAUDE.md`.
 - `recall_engine/api/`: FastAPI app that serves a ready engine over HTTP (`api` extra). See `recall_engine/api/CLAUDE.md`.
-- `recall_engine/cli/`: the `recall_engine` console script (`search`, `ask`, `serve`). See `recall_engine/cli/CLAUDE.md`.
+- `recall_engine/cli/`: the `recall_engine` console script (`ingest`, `search`, `retrieve`, `ask`, `serve`). See `recall_engine/cli/CLAUDE.md`.
 - `tests/`: pytest suite; `slow` marks tests that download a model or need large datasets.
 - `datasets/`: sample data (`movies.json`) and the MS MARCO loader used by the benchmark.
 
@@ -18,6 +18,7 @@ Search and RAG library for files, folders and databases: keyword, boolean, BM25,
 uv sync --extra dev
 uv run recall_engine search "query" --dataset datasets/movies.json
 uv run recall_engine ask "question" --dataset ./docs   # needs ANTHROPIC_API_KEY
+uv run recall_engine ingest ./docs --index kb.pkl --embed && uv run recall_engine retrieve "query" --index kb.pkl
 uv run pytest -m "not slow"     # what CI runs
 uv run pytest -v -s             # everything, including slow tests
 ```
