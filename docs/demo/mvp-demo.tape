@@ -12,9 +12,14 @@ Set Padding 28
 Set Theme "Catppuccin Mocha"
 Set WindowBar Colorful
 Set TypingSpeed 35ms
+# 15 fps keeps frame capture in step with the sleeps on a loaded machine; at 50 fps vhs drops frames and pauses shrink.
+Set Framerate 15
 
 Hide
 Type `export PS1='$ ' HOME=$(mktemp -d) && cd docs/demo && rm -f /tmp/shop.db && sqlite3 /tmp/shop.db "create table products (sku text, name text, description text); insert into products values ('LC-100', 'Desk lamp', 'Warm LED lamp with a dimmer'), ('LC-200', 'Standing desk', 'Electric sit stand desk with memory presets'), ('LC-300', 'Monitor arm', 'Gas spring arm for one 32 inch monitor');" && clear`
+Enter
+# A bare vim keeps the reader's vimrc out of the recording.
+Type `alias vim="vim -Nu NONE -R -c 'syntax on | set number'" && clear`
 Enter
 Show
 
@@ -30,7 +35,24 @@ Sleep 2.5s
 Type "clear"
 Enter
 
-Type "# Point it at the folder. Every file is parsed, split into passages and indexed"
+Type "# As a library: the engine, the source loader and the HTTP app"
+Enter
+Type "vim quickstart.py"
+Enter
+Sleep 10s
+Type ":q"
+Enter
+Type "python quickstart.py"
+Enter
+# Indexing and the first hybrid query take minutes on a busy machine, so the wait is cut out.
+Hide
+Wait+Screen@600s /routes \[/
+Show
+Sleep 6s
+Type "clear"
+Enter
+
+Type "# The same from the CLI. Every file is parsed, split into passages and indexed"
 Enter
 Type `recall_engine search "refund within 14 days" --dataset sample-docs --top-k 3`
 Enter
