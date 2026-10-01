@@ -42,20 +42,20 @@ def _ingest(args: argparse.Namespace) -> None:
         cache_path=args.index,
         embedding_model=args.embedding_model,
     )
-    # from_source only writes caches for file-backed sources; saving here also keeps a snapshot of database URLs.
-    engine.indexer.save()
-    print(f"Indexed {len(engine.indexer.get_doc_map())} passages into {args.index}")
+    # from_source already saved file-backed sources; database URLs have no fingerprint, so it never saves them.
+    has_fingerprint = engine.indexer.source_fingerprint is not None
+    if not has_fingerprint:
+        engine.indexer.save()
+    print(f"Indexed {engine.indexer.get_total_documents()} passages into {args.index}")
     if not args.embed:
         return
-    embedded_count = engine.embed()
-    if engine.indexer.source_fingerprint is None:
-        print(f"Embedded {embedded_count} passages (not cached: a database URL source has no fingerprint to key them on)")
-    else:
-        print(f"Embedded {embedded_count} passages")
+    if not has_fingerprint:
+        print("Skipped --embed: embeddings are cached by source fingerprint, and a database URL source has none")
+        return
+    print(f"Embedded {engine.embed()} passages")
 
 
-def _search(args: argparse.Namespace) -> None:
-    engine = _open_engine(args)
+def _search(args: argparse.Namespace, engine: SearchEngine) -> None:
     top_k = args.top_k if args.mode in RANKED_MODES else None
 
     print(f"Query : {args.query}")
@@ -83,8 +83,7 @@ def _result_label(doc: dict, engine: SearchEngine) -> str:
     return f"{doc_id}  {snippet}"
 
 
-def _retrieve(args: argparse.Namespace) -> None:
-    engine = _open_engine(args)
+def _retrieve(args: argparse.Namespace, engine: SearchEngine) -> None:
     try:
         passages = engine.retrieve(args.query, mode=args.mode, top_k=args.top_k)
     except ValueError as exc:
@@ -99,8 +98,7 @@ def _retrieve(args: argparse.Namespace) -> None:
         print(f"    {' '.join(passage['text'].split())}")
 
 
-def _ask(args: argparse.Namespace) -> None:
-    engine = _open_engine(args)
+def _ask(args: argparse.Namespace, engine: SearchEngine) -> None:
     try:
         answer = engine.ask(args.question, mode=args.mode, top_k=args.top_k)
     except ValueError as exc:
@@ -115,13 +113,12 @@ def _ask(args: argparse.Namespace) -> None:
         print(f"  [{citation['number']}] {citation['passage_id']}: \"{citation['cited_text'].strip()}\"")
 
 
-def _serve(args: argparse.Namespace) -> None:
+def _serve(args: argparse.Namespace, engine: SearchEngine) -> None:
     from recall_engine.api import create_app
 
     # uvicorn ships with the api extra, which the create_app import above already requires.
     import uvicorn
 
-    engine = _open_engine(args)
     uvicorn.run(create_app(engine, api_key=os.environ.get(API_KEY_ENV_VAR)), host=args.host, port=args.port)
 
 
@@ -193,46 +190,33 @@ def cli() -> None:
     ingest_parser.add_argument(
         "--embed", action="store_true", help="Embed every passage now so semantic and hybrid queries start fast"
     )
-    ingest_parser.set_defaults(run_command=_ingest)
 
-    retrieve_parser = subparsers.add_parser(
-        "retrieve", parents=[dataset_parser], help="Print the top passages for a query, for use in any model's prompt"
-    )
-    retrieve_parser.add_argument("query", type=str, help="Search query")
-    retrieve_parser.add_argument(
-        "--mode",
-        type=str,
-        default=DEFAULT_RETRIEVAL_MODE,
-        choices=RETRIEVAL_MODES,
-        help=f"Retrieval mode (default: {DEFAULT_RETRIEVAL_MODE})",
-    )
-    retrieve_parser.add_argument(
-        "--top-k",
-        type=int,
-        default=DEFAULT_RETRIEVAL_TOP_K,
-        dest="top_k",
-        help=f"Number of passages to return (default: {DEFAULT_RETRIEVAL_TOP_K})",
-    )
-    retrieve_parser.set_defaults(run_command=_retrieve)
-
-    ask_parser = subparsers.add_parser(
-        "ask", parents=[dataset_parser], help="Answer a question from the dataset with Claude (needs ANTHROPIC_API_KEY)"
-    )
-    ask_parser.add_argument("question", type=str, help="Question to answer")
-    ask_parser.add_argument(
+    retrieval_parser = argparse.ArgumentParser(add_help=False, parents=[dataset_parser])
+    retrieval_parser.add_argument(
         "--mode",
         type=str,
         default=DEFAULT_RETRIEVAL_MODE,
         choices=RETRIEVAL_MODES,
         help=f"Retrieval mode used to pick passages (default: {DEFAULT_RETRIEVAL_MODE})",
     )
-    ask_parser.add_argument(
+    retrieval_parser.add_argument(
         "--top-k",
         type=int,
         default=DEFAULT_RETRIEVAL_TOP_K,
         dest="top_k",
-        help=f"Number of passages sent to Claude (default: {DEFAULT_RETRIEVAL_TOP_K})",
+        help=f"Number of passages to retrieve (default: {DEFAULT_RETRIEVAL_TOP_K})",
     )
+
+    retrieve_parser = subparsers.add_parser(
+        "retrieve", parents=[retrieval_parser], help="Print the top passages for a query, for use in any model's prompt"
+    )
+    retrieve_parser.add_argument("query", type=str, help="Search query")
+    retrieve_parser.set_defaults(run_command=_retrieve)
+
+    ask_parser = subparsers.add_parser(
+        "ask", parents=[retrieval_parser], help="Answer a question from the dataset with Claude (needs ANTHROPIC_API_KEY)"
+    )
+    ask_parser.add_argument("question", type=str, help="Question to answer")
     ask_parser.set_defaults(run_command=_ask)
 
     serve_parser = subparsers.add_parser(
@@ -250,7 +234,10 @@ def cli() -> None:
         parser.print_help()
         return
 
-    args.run_command(args)
+    if args.command == "ingest":
+        _ingest(args)
+        return
+    args.run_command(args, _open_engine(args))
 
 
 if __name__ == "__main__":
