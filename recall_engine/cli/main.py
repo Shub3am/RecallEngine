@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import sys
 
 from recall_engine.search_engine import SearchEngine
 from recall_engine.search_engine.engine import (
@@ -234,10 +235,14 @@ def cli() -> None:
         parser.print_help()
         return
 
-    if args.command == "ingest":
-        _ingest(args)
-        return
-    args.run_command(args, _open_engine(args))
+    # Every optional extra raises an ImportError whose message names the pip install to run.
+    try:
+        if args.command == "ingest":
+            _ingest(args)
+            return
+        args.run_command(args, _open_engine(args))
+    except ImportError as exc:
+        sys.exit(f"Error: {exc}")
 
 
 if __name__ == "__main__":

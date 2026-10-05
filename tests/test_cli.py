@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from recall_engine.cli.main import cli
+from recall_engine.sources.files import MISSING_FORMATS_EXTRA
 from tests.test_rag_pipeline import two_folders  # noqa: F401  (pytest fixture, shared with the pipeline tests)
 from tests.test_sources import sqlite_path  # noqa: F401  (pytest fixture)
 
@@ -54,6 +55,20 @@ def test_retrieve_reports_when_nothing_matches(monkeypatch, capsys, two_folders:
 def test_dataset_and_index_cannot_be_combined(monkeypatch, capsys, tmp_path: Path):
     with pytest.raises(SystemExit):
         run_cli(monkeypatch, capsys, "search", "x", "--dataset", "a.json", "--index", str(tmp_path / "kb.pkl"))
+
+
+def test_missing_extra_exits_with_its_install_hint(monkeypatch, capsys, tmp_path: Path):
+    (tmp_path / "manual.pdf").write_bytes(b"%PDF-1.4")
+
+    def raise_missing_extra(module_name: str):
+        raise ImportError(MISSING_FORMATS_EXTRA)
+
+    monkeypatch.setattr("recall_engine.sources.files.import_formats_module", raise_missing_extra)
+
+    with pytest.raises(SystemExit) as exit_info:
+        run_cli(monkeypatch, capsys, "ingest", str(tmp_path), "--index", str(tmp_path / "kb.pkl"))
+
+    assert exit_info.value.code == f"Error: {MISSING_FORMATS_EXTRA}"
 
 
 def test_ingest_saves_a_database_url_but_skips_embedding_it(monkeypatch, capsys, sqlite_path: Path, tmp_path: Path):
